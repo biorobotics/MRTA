@@ -96,7 +96,17 @@ def normalize_agent_assignments(allocs, rewards):
     return robot_list, weighted_r + reward_min
 
 
-def generate_true_data(env, n_samples, env_type, data_method='sample'):
+# tournament selection
+def selection(pop, scores, k=3):
+    # first random selection
+    selection_ix = np.random.randint(len(pop))
+    for ix in np.random.randint(0, len(pop), k-1):
+        # check if better (e.g. perform a tournament)
+        if scores[ix] < scores[selection_ix]:
+            selection_ix = ix
+    return pop[selection_ix]
+
+def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data=None):
     # #should only produce uniform and 0.1, 0.1, 0.5, 0.3
     if data_method == 'sample_upper':
         allocs, rewards = env.generate_random_dist_and_reward(n_samples, env_type, constraint=False)
@@ -112,6 +122,14 @@ def generate_true_data(env, n_samples, env_type, data_method='sample'):
         allocs, rewards = env.test_dist(env_type)
     elif data_method == 'sample':
         allocs, rewards = env.generate_random_dist_and_reward(n_samples, env_type)
+    elif data_method == 'ga':
+        # first, obtain the generated data
+        if not fake_data:
+            exit("utils.py line 128 fatal error")
+        else:
+            #generate the next generation of population
+            new_data = 
+            return new_data
     else:
         exit("utils.py error line 55")
     avg_random_rewards = rewards.mean()
