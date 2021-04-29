@@ -8,6 +8,7 @@ from env import MultiAgentEnv
 import numpy as np
 import os
 from collections import defaultdict
+import torch.nn.functional as F
 
 def test():
     params = get_params()
@@ -43,19 +44,22 @@ def test():
     env_type = [0, 1, 2, 3]
     env_onehot = torch.zeros([sample_size, params['env_input_len']], dtype=torch.float, device=worker_device)
     noise = torch.normal(0, 1, size=(sample_size, params['design_input_len']), device=worker_device)
-    generated_data_raw = generator(noise, env_onehot)
+
+    generated_data_logits = generator(noise, env_onehot)
+    generated_data_raw = F.softmax(generated_data_logits, dim=-1)
     generated_data_raw = generated_data_raw.detach().cpu().numpy().astype(float)
     print(f"env type is: {env_type}")
     int_alloc = [env.getInteger(alloc.T).T for alloc in generated_data_raw[:5]]
     for alloc in int_alloc:
         print(alloc)
-    generated_rewards = [env.getReward(alloc.T, env_type) for alloc in generated_data_raw]
+    generated_rewards = np.array([env.getReward(alloc.T, env_type) for alloc in generated_data_raw])
+    np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
     print(f"fake data average reward: {np.mean(generated_rewards)}")
-    print(np.max(generated_rewards))
-    print(np.min(generated_rewards))
+    print(f"fake data max reward: {np.max(generated_rewards)}")
+    print(f"fake data min reward: {np.min(generated_rewards)}")
     print(generated_rewards)
+    print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
     # TODO: debug this later
-    # DEBUG: why 125??? how does it find the maximum?
     # get_count_dict(generated_data_raw, env, env_type)
 
 def get_count_dict(generated_data_raw, env, env_type):

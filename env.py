@@ -77,6 +77,7 @@ class MultiAgentEnv:
 
     def generate_random_dist_and_reward(self, num, env_type, constraint=False):
         if constraint:
+            # currently only work for [0, 1, 2, 3]
             # #city, mountain, plain, lake
             # #drone car ship
             rand = np.zeros([num, self.n_num_agents, self.n_num_grids])

@@ -56,6 +56,8 @@ class allocation_generator(nn.Module):
                 x = self.bn_list[i+1](x)
         x = self.output_layer(x)
         x = x.view(-1, self.n_agent, self.n_env_grid)  # add the batch dimension
-        x = F.softmax(x, dim=-1)
+
+        ## this softmax operation is moved to outer loop
+        # x = F.softmax(x, dim=-1)
         return x
 

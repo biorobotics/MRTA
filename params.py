@@ -23,9 +23,13 @@ def get_params():
     params['gp_lambda'] = 10
     params['gen_norm'] = 'bn'
     params['dis_norm'] = 'none'
+    # params['dis_norm'] = 'ln'
+
+    # params['data_method'] = 'ga'
+    # params['data_method'] = 'sample_upper_constraint' # we need to change the constraint for different terrain type
+    params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 
-    params['data_method'] = 'sample_upper_constraint'
-
-    params['vary_env'] = 'static'
+    # params['vary_env'] = 'static'
+    params['vary_env'] = 'discrete'
     return params

@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from env import MultiAgentEnv
 import numpy as np
 import os
+import torch.nn.functional as F
 
 def train(
     training_steps: int = 500000,
@@ -45,7 +46,7 @@ def train(
     else:
         out_dir = os.path.join('gan_logs/', '')
         out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
-        out_dir += '_%s' % (params['vary_env'])
+        out_dir += '_%s_%s' % (params['vary_env'], params['dis_norm'])
         # out_dir += '_%s_gpl:%g' % (params['dis_norm'], params['gp_lambda'])
         # out_dir += '_atypes:%d_enum:%d_etypes:%d' % (
         #     params['n_agent_types'], params['env_grid_num'], params['n_env_types'])
@@ -66,7 +67,7 @@ def train(
         if params['vary_env'] == 'static':
             env_type = [0, 1, 2, 3]
         elif params['vary_env'] == 'discrete':
-            env_type_list = [[0, 1, 2, 3], [1, 1, 2, 3], [0, 2, 3, 3]]
+            env_type_list = [[0, 1, 2, 3], [1, 2, 3, 0], [2, 3, 0, 3]]
             env_dex = np.random.randint(len(env_type_list))
             env_type = env_type_list[env_dex]
         else:
@@ -74,16 +75,21 @@ def train(
         env_onehot = torch.tensor(int_to_onehot(env_type, params['n_env_types']),
                                   dtype=torch.float, device=worker_device)
         env_onehot = env_onehot.reshape(1, -1).repeat(batch_size, 1)
-        # if we use an idealized dataset
-        true_data, true_avg_r, true_raw_r = generate_true_data(env, params['n_samples'], env_type,
-                                                               data_method=params['data_method'])
 
         # Create noisy input for generator
         # noise = torch.rand((batch_size, params['design_input_len']), device=worker_device)
         noise = torch.normal(0, 1, size=(batch_size, params['design_input_len']), device=worker_device)
 
-        generated_data_raw = generator(noise, env_onehot)
+        generated_data_logits = generator(noise, env_onehot)
+        generated_data_raw = F.softmax(generated_data_logits, dim=-1)
         generated_data = generated_data_raw.reshape(batch_size, -1)
+
+        # if we use an idealized dataset
+        true_data, true_avg_r, true_raw_r = generate_true_data(env, params['n_samples'], env_type,
+                                                               data_method=params['data_method'],
+                                                               fake_data=generated_data_logits)
+
+
         true_data = torch.tensor(true_data).float().to(worker_device)
 
         # TODO: incorporate batch normalization into the scheme
@@ -119,7 +125,22 @@ def train(
         # log interval
         if i % (2 * n_critic) == 0:
             writer.add_scalar('Train' + '/generator_loss', generator_loss.mean(), i)
-            writer.add_scalar('Train' + '/discriminator_loss', discriminator_loss_log.mean(), i)
+            if params['vary_env'] == 'static':
+                writer.add_scalar('Disc' + '/generator_discriminator_loss',
+                                  generator_discriminator_loss.detach().mean(), i)
+                writer.add_scalar('Disc' + '/true_discriminator_loss',
+                                  true_discriminator_loss.detach().mean(), i)
+                writer.add_scalar('Train' + '/discriminator_loss',
+                                  discriminator_loss_log.mean(), i)
+            elif params['vary_env'] == 'discrete':
+                writer.add_scalar('Disc' + '/generator_discriminator_loss' + str(env_dex),
+                                  generator_discriminator_loss.detach().mean(), i)
+                writer.add_scalar('Disc' + '/true_discriminator_loss' + str(env_dex),
+                                  true_discriminator_loss.detach().mean(), i)
+                writer.add_scalar('Train' + '/discriminator_loss' + str(env_dex),
+                                  discriminator_loss_log.mean(), i)
+
+
 
         if i % print_output_every_n_steps == 0:
             # TODO: change to get integer assignment
@@ -131,9 +152,9 @@ def train(
             print(f"fake data average reward: {np.mean(generated_rewards)}")
             print(f"real data average reward: {true_avg_r}")
             print(f"random sample average reward: {true_raw_r}")
-            writer.add_scalar('Train' + '/fake_avg_reward', np.mean(generated_rewards), i)
-            writer.add_scalar('Train' + '/true_avg_reward', true_avg_r, i)
-            writer.add_scalar('Train' + '/true_raw_reward', true_raw_r, i)
+            writer.add_scalar('R' + '/fake_avg_reward', np.mean(generated_rewards), i)
+            writer.add_scalar('R' + '/true_avg_reward', true_avg_r, i)
+            writer.add_scalar('R' + '/true_raw_reward', true_raw_r, i)
             torch.save(generator.state_dict(), os.path.join(out_dir, "generator_weight"))
             torch.save(discriminator.state_dict(), os.path.join(out_dir, "discriminator_weight"))
     return generator, discriminator

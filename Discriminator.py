@@ -25,23 +25,27 @@ class Discriminator(nn.Module):
         self.output_layer = nn.Linear(hidden_layer_size, 1)
         self.activation = torch.nn.LeakyReLU(0.01)
 
+        self.norm = norm
         if norm == 'bn':
-            self.use_bn = True
             # batch normalization
             self.bn_list = torch.nn.ModuleList()
             for i in range(n_hidden_layers+1):
                 self.bn_list.append(nn.BatchNorm1d(hidden_layer_size))
+        elif norm == 'ln':
+            # layer normalization
+            self.ln_list = torch.nn.ModuleList()
+            for i in range(n_hidden_layers + 1):
+                self.ln_list.append(nn.LayerNorm(hidden_layer_size))
         elif norm == 'none':
-            self.use_bn = False
+            pass
         else:
             exit("Discriminator.py: wrong normalization argument")
 
-    def forward(self, robot, terrain_conv_output):
+    def forward(self, robot, env_vect):
         # print(design_latent.shape)
         # print(terrain_conv_output.shape)
-        use_bn = self.use_bn
         x1 = self.activation(self.input_layer(robot))
-        x2 = self.activation(self.embedding_layer(terrain_conv_output))
+        x2 = self.activation(self.embedding_layer(env_vect))
 
         x = torch.cat((x1, x2), dim=-1)
 
@@ -51,8 +55,10 @@ class Discriminator(nn.Module):
 
         for i in range(self.n_hidden_layers):
             x = self.hidden_list[i](x)
-            if use_bn:
+            if self.norm == 'bn':
                 x = self.bn_list[i+1](x)
+            elif self.norm == 'ln':
+                x = self.ln_list[i + 1](x)
             x = self.activation(x)
         x = self.output_layer(x)
         return x
