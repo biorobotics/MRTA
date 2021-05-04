@@ -1,3 +1,9 @@
+'''
+Author: Jiaheng Hu
+Based on https://towardsdatascience.com/introducing-geneal-a-genetic-algorithm-python-library-db69abfc212c
+Contains helper function for evolution
+'''
+
 import numpy as np
 import math
 from env import MultiAgentEnv

@@ -1,6 +1,6 @@
 '''
 Author: Jiaheng Hu
-The discriminator
+Training Parameters
 '''
 
 import torch
