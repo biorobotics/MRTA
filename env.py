@@ -1,10 +1,8 @@
+
+
 import numpy as np
 
 
-# another question is how do we measure frequency? (based on the actual discrete assignment? yeah)
-# try to make it possible for multiple solution to occur
-# the conditioning is a bit chunky though...
-# RN: works on arbitrary number of agents: no need for
 
 # current rule: info means potential (a 1d value)
 # terrain has 4 different types:
@@ -113,9 +111,6 @@ class MultiAgentEnv:
         reward = np.asarray([self.getReward(dist.T, env_type) for dist in dists])
         # print(dists, reward)
         return dists, reward
-
-    # def generate_uniform_dist_and_reward(self, num):
-
 
 if __name__ == '__main__':
     env = MultiAgentEnv()

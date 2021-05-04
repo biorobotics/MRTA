@@ -1,7 +1,7 @@
 import torch
-from utils import generate_true_data, calc_gradient_penalty
+from utils import generate_true_data, calc_gradient_penalty, int_to_onehot
 from params import get_params
-from Generator import allocation_generator
+from Generator import AllocationGenerator
 from Discriminator import Discriminator
 from torch.utils.tensorboard import SummaryWriter
 from env import MultiAgentEnv
@@ -22,7 +22,7 @@ def test():
     worker_device = torch.device("cuda:0")
 
     # Models
-    generator = allocation_generator(
+    generator = AllocationGenerator(
         n_agent=params['n_agent_types'],
         n_env_grid=params['env_grid_num'],
         env_input_len=params['env_input_len'],
@@ -37,12 +37,16 @@ def test():
     discriminator.load_state_dict(torch.load("./test_weights/discriminator_weight"))
 
     # TODO: why would evaluation cause problem? [Oh the batch norm of the generator]
-    # generator.eval()
-    # discriminator.eval()
+    generator.eval()
+    discriminator.eval()
 
     sample_size = 1000
     env_type = [0, 1, 2, 3]
-    env_onehot = torch.zeros([sample_size, params['env_input_len']], dtype=torch.float, device=worker_device)
+    # env_type = [1, 2, 3, 0]
+    # [2, 3, 0, 3]
+    env_onehot = torch.tensor(int_to_onehot(env_type, params['n_env_types']),
+                              dtype=torch.float, device=worker_device)
+    env_onehot = env_onehot.reshape(1, -1).repeat(sample_size, 1)
     noise = torch.normal(0, 1, size=(sample_size, params['design_input_len']), device=worker_device)
 
     generated_data_logits = generator(noise, env_onehot)
@@ -58,7 +62,17 @@ def test():
     print(f"fake data max reward: {np.max(generated_rewards)}")
     print(f"fake data min reward: {np.min(generated_rewards)}")
     print(generated_rewards)
-    print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
+    # print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
+    int_alloc = [env.getInteger(alloc.T).T for alloc in generated_data_raw]
+    # for alloc in int_alloc:
+    #     print(alloc)
+    int_alloc = np.array(int_alloc)
+    # print(int_alloc[0])
+    # print(int_alloc)
+    # hmm this is not right
+    print(np.abs(int_alloc - int_alloc[0]).max(axis=0))
+    print(np.argmax(np.abs(int_alloc - int_alloc[0]), axis=0))
+    # print(np.abs(int_alloc - int_alloc[0]).sum(axis=(1, 2)).mean())
     # TODO: debug this later
     # get_count_dict(generated_data_raw, env, env_type)
 
@@ -74,6 +88,7 @@ def get_count_dict(generated_data_raw, env, env_type):
     for i in range(10):
         max_assign = np.fromstring(sorted_key[-i], dtype=float)
         print(max_assign.reshape((3,4)))
+
     # TODO: figure out why we are having weird behaviors: max_assign greater than max generated reward...
     # print(dict[sorted_key[-1]])
     # print("reward")

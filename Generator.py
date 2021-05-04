@@ -1,18 +1,15 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-class allocation_generator(nn.Module):
+class AllocationGenerator(nn.Module):
     def __init__(self, n_agent, n_env_grid, env_input_len,
                  design_input_len,
                  layer_size=(64, 128), norm='bn'):
-        super(allocation_generator, self).__init__()
+        super(AllocationGenerator, self).__init__()
 
         n_hidden_layers = len(layer_size)
         self.design_input_len = design_input_len
         self.n_agent = n_agent
-
-        # TODO: embeddings?
         self.n_env_grid = n_env_grid
         # preprocess env: map to same length as design input
         self.env_out_layer = nn.Linear(env_input_len, design_input_len)
@@ -38,8 +35,7 @@ class allocation_generator(nn.Module):
             exit("Generator.py: wrong normalization argument")
 
 
-    # given x a terrain input & noise,
-    # return probability distribution over module selections
+
     def forward(self, design_latent, env_vector):
         use_bn = self.use_bn
 
@@ -57,7 +53,8 @@ class allocation_generator(nn.Module):
         x = self.output_layer(x)
         x = x.view(-1, self.n_agent, self.n_env_grid)  # add the batch dimension
 
-        ## this softmax operation is moved to outer loop
+        # this softmax operation is moved to outer loop
         # x = F.softmax(x, dim=-1)
+
         return x
 

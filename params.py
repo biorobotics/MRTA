@@ -21,7 +21,8 @@ def get_params():
 
     # WGAN-GP lambda
     params['gp_lambda'] = 10
-    params['gen_norm'] = 'bn'
+    params['gen_norm'] = 'none'
+    # params['gen_norm'] = 'bn'
     params['dis_norm'] = 'none'
     # params['dis_norm'] = 'ln'
 
@@ -30,6 +31,7 @@ def get_params():
     params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 
+    params['vary_env'] = 'random'
     # params['vary_env'] = 'static'
-    params['vary_env'] = 'discrete'
+    # params['vary_env'] = 'discrete'
     return params

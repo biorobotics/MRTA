@@ -1,7 +1,7 @@
 import torch
 from utils import generate_true_data, calc_gradient_penalty, int_to_onehot
 from params import get_params
-from Generator import allocation_generator
+from Generator import AllocationGenerator
 from Discriminator import Discriminator
 from torch.utils.tensorboard import SummaryWriter
 from env import MultiAgentEnv
@@ -27,7 +27,7 @@ def train(
     worker_device = torch.device("cuda:0")
 
     # Models
-    generator = allocation_generator(
+    generator = AllocationGenerator(
         n_agent=params['n_agent_types'],
         n_env_grid=params['env_grid_num'],
         env_input_len=params['env_input_len'],
@@ -46,7 +46,7 @@ def train(
     else:
         out_dir = os.path.join('gan_logs/', '')
         out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
-        out_dir += '_%s_%s' % (params['vary_env'], params['dis_norm'])
+        out_dir += '_%s_%s_%s' % (params['vary_env'], params['gen_norm'], params['dis_norm'])
         # out_dir += '_%s_gpl:%g' % (params['dis_norm'], params['gp_lambda'])
         # out_dir += '_atypes:%d_enum:%d_etypes:%d' % (
         #     params['n_agent_types'], params['env_grid_num'], params['n_env_types'])
@@ -70,6 +70,8 @@ def train(
             env_type_list = [[0, 1, 2, 3], [1, 2, 3, 0], [2, 3, 0, 3]]
             env_dex = np.random.randint(len(env_type_list))
             env_type = env_type_list[env_dex]
+        elif params['vary_env'] == 'random':
+            env_type = np.random.choice(4, 4)
         else:
             exit("error training.py line 71")
         env_onehot = torch.tensor(int_to_onehot(env_type, params['n_env_types']),
@@ -91,8 +93,6 @@ def train(
 
 
         true_data = torch.tensor(true_data).float().to(worker_device)
-
-        # TODO: incorporate batch normalization into the scheme
         if i % n_critic == 0:
             # zero the gradients on each iteration
             generator_optimizer.zero_grad()
@@ -125,7 +125,7 @@ def train(
         # log interval
         if i % (2 * n_critic) == 0:
             writer.add_scalar('Train' + '/generator_loss', generator_loss.mean(), i)
-            if params['vary_env'] == 'static':
+            if params['vary_env'] == 'static' or params['vary_env'] == 'random':
                 writer.add_scalar('Disc' + '/generator_discriminator_loss',
                                   generator_discriminator_loss.detach().mean(), i)
                 writer.add_scalar('Disc' + '/true_discriminator_loss',
@@ -143,7 +143,6 @@ def train(
 
 
         if i % print_output_every_n_steps == 0:
-            # TODO: change to get integer assignment
             print(f"env type is: {env_type}")
             int_alloc = [env.getInteger(alloc.T).T for alloc in generated_data_raw[:5].detach().cpu()]
             for alloc in int_alloc:
