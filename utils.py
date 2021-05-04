@@ -132,12 +132,12 @@ def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data
             #generate the next generation of population
             #take the current population, and evolve it
             allocs = np.array(fake_data.detach().cpu())
-            fitness = np.array([env.getReward(alloc.T, env_type) for alloc in softmax(allocs, axis=-1)])
+            fitness = np.array([env.get_reward(alloc.T, env_type) for alloc in softmax(allocs, axis=-1)])
             new_data = evolve_one_gen(allocs.reshape(128, 12), fitness)
             new_data = softmax(new_data.reshape(128, 3, 4), axis=-1)
 
             #TODO: what if we return logits as well, and discriminator also takes in logits?
-            new_fit_avg = np.mean([env.getReward(alloc.T, env_type) for alloc in new_data])
+            new_fit_avg = np.mean([env.get_reward(alloc.T, env_type) for alloc in new_data])
             return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
     else:
         exit("utils.py error line 55")

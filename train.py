@@ -1,3 +1,8 @@
+'''
+Author: Jiaheng Hu
+Train the Network
+'''
+
 import torch
 from utils import generate_true_data, calc_gradient_penalty, int_to_onehot
 from params import get_params
@@ -73,7 +78,7 @@ def train(
         elif params['vary_env'] == 'random':
             env_type = np.random.choice(4, 4)
         else:
-            exit("error training.py line 71")
+            exit("error train.py line 71")
         env_onehot = torch.tensor(int_to_onehot(env_type, params['n_env_types']),
                                   dtype=torch.float, device=worker_device)
         env_onehot = env_onehot.reshape(1, -1).repeat(batch_size, 1)
@@ -144,10 +149,10 @@ def train(
 
         if i % print_output_every_n_steps == 0:
             print(f"env type is: {env_type}")
-            int_alloc = [env.getInteger(alloc.T).T for alloc in generated_data_raw[:5].detach().cpu()]
+            int_alloc = [env.get_integer(alloc.T).T for alloc in generated_data_raw[:5].detach().cpu()]
             for alloc in int_alloc:
                 print(alloc)
-            generated_rewards = [env.getReward(alloc.T, env_type) for alloc in generated_data_raw.detach().cpu()]
+            generated_rewards = [env.get_reward(alloc.T, env_type) for alloc in generated_data_raw.detach().cpu()]
             print(f"fake data average reward: {np.mean(generated_rewards)}")
             print(f"real data average reward: {true_avg_r}")
             print(f"random sample average reward: {true_raw_r}")

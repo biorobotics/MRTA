@@ -1,5 +1,6 @@
 '''
-bgan discriminator
+Author: Jiaheng Hu
+The discriminator
 '''
 
 import torch
@@ -8,7 +9,6 @@ import torch.nn.functional as F
 
 # TODO: change the net structure (How about embeddings?)
 # disabled BN of wgan gp, might add other normalization techniques. Original paper suggested layer norm
-
 
 class Discriminator(nn.Module):
     def __init__(self, alloc_length, env_size, norm='none', n_hidden_layers=3, hidden_layer_size=128):

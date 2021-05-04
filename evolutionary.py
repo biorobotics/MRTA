@@ -14,7 +14,7 @@ env_type = [0, 1, 2, 3]
 def f(x):
     x = x.reshape([4,3])
     x /= x.sum(axis=0)
-    return - env.getReward(x, env_type)
+    return - env.get_reward(x, env_type)
 
 
 varbound=np.array([[0,1]]*12)

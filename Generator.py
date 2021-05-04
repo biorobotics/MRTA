@@ -1,5 +1,11 @@
+'''
+Author: Jiaheng Hu
+The task allocation generator
+'''
+
 import torch
 import torch.nn as nn
+
 
 class AllocationGenerator(nn.Module):
     def __init__(self, n_agent, n_env_grid, env_input_len,

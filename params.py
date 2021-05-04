@@ -1,3 +1,8 @@
+'''
+Author: Jiaheng Hu
+Training Parameters
+'''
+
 def get_params():
     # params contains constants that are shared over all workers
     params = dict()
@@ -27,7 +32,8 @@ def get_params():
     # params['dis_norm'] = 'ln'
 
     # params['data_method'] = 'ga'
-    # params['data_method'] = 'sample_upper_constraint' # we need to change the constraint for different terrain type
+    # we need to change the constraint for different terrain type
+    # params['data_method'] = 'sample_upper_constraint'
     params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 

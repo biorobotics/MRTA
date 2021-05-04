@@ -1,8 +1,7 @@
+'''
+Author: Jiaheng Hu
 
-
-import numpy as np
-
-
+This env defines a toy MRTA problem.
 
 # current rule: info means potential (a 1d value)
 # terrain has 4 different types:
@@ -15,8 +14,10 @@ import numpy as np
 # car: 1
 # boat: 2
 
-# initially assumes uniform info
-# right now this can be solved greedily: look for ways to make this more complex
+'''
+
+import numpy as np
+
 
 class MultiAgentEnv:
     def __init__(self, n_num_grids=4, n_num_agents=3, n_env_types=4, agent_num=[100, 100, 100]):
@@ -27,7 +28,7 @@ class MultiAgentEnv:
 
     # alloc: ngrid x nagent
     # turn continuous alloc into discrete assignment
-    def getInteger(self, alloc):
+    def get_integer(self, alloc):
         int_alloc = np.zeros_like(alloc)
         for i in range(self.n_num_agents):
             remaining = self.agent_num[i]
@@ -41,15 +42,15 @@ class MultiAgentEnv:
     # alloc: ngrid x nagent
     # env_type: ngrid x 1 vector
     # info: ngrid x 1 vector
-    def getReward(self, alloc, env_type, info=[1]*4):
-        int_alloc = self.getInteger(alloc)
+    def get_reward(self, alloc, env_type, info=[1] * 4):
+        int_alloc = self.get_integer(alloc)
         reward = 0
         for i in range(self.n_num_grids):
-            cur_reward = self.getGridReward(int_alloc[i], info[i], env_type[i])
+            cur_reward = self.get_grid_reward(int_alloc[i], info[i], env_type[i])
             reward += cur_reward
         return reward
 
-    def getGridReward(self, agents_num, info, env_type):
+    def get_grid_reward(self, agents_num, info, env_type):
         plane_num = agents_num[0]
         car_num = agents_num[1]
         ship_num = agents_num[2]
@@ -100,7 +101,7 @@ class MultiAgentEnv:
         else:
             rand = np.random.uniform(0, 1, [num, self.n_num_agents, self.n_num_grids])
         rand_res = rand / np.sum(rand, axis=-1)[:, :, np.newaxis]
-        reward = np.asarray([self.getReward(dist.T, env_type) for dist in rand_res])
+        reward = np.asarray([self.get_reward(dist.T, env_type) for dist in rand_res])
         return rand_res, reward
 
     def test_dist(self, env_type):
@@ -108,7 +109,7 @@ class MultiAgentEnv:
         dist2 = np.asarray([[0.1, 0.1, 0.5, 0.3]] * self.n_num_agents)
         dist3 = np.asarray([[0.2, 0.4, 0.1, 0.3]] * self.n_num_agents)
         dists = np.asarray([dist1, dist2, dist3])
-        reward = np.asarray([self.getReward(dist.T, env_type) for dist in dists])
+        reward = np.asarray([self.get_reward(dist.T, env_type) for dist in dists])
         # print(dists, reward)
         return dists, reward
 

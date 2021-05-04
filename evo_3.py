@@ -10,7 +10,7 @@ def fitness_function(x):
     # x /= x.sum(axis=1)
     #instead, apply logistic
     x = softmax(x, axis=1)
-    return env.getReward(x.T, env_type)
+    return env.get_reward(x.T, env_type)
 
 # def fitness_function(x):
 #     """

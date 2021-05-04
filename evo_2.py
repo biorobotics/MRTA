@@ -23,7 +23,7 @@ def to_pop_format(x):
 def objective(x):
     x = np.asarray(x).reshape([4, 3])
     x /= x.sum(axis=0)
-    return - env.getReward(x, env_type)
+    return - env.get_reward(x, env_type)
 
 # decode bitstring to numbers
 def decode(bounds, n_bits, bitstring):
