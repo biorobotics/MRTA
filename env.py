@@ -22,22 +22,25 @@ import numpy as np
 class MultiAgentEnv:
     def __init__(self, n_num_grids=4, n_num_agents=3, n_env_types=4, agent_num=[100, 100, 100]):
         self.n_num_grids = n_num_grids
-        self.n_num_agents = n_num_agents
-        self.n_env_types = n_env_types
+        self.n_types_agents = n_num_agents
+        self.n_types_terrain = n_env_types
         self.agent_num = agent_num
 
-    # alloc: ngrid x nagent
     # turn continuous alloc into discrete assignment
     def get_integer(self, alloc):
+        alloc = alloc.T
         int_alloc = np.zeros_like(alloc)
-        for i in range(self.n_num_agents):
+        for i in range(self.n_types_agents):
             remaining = self.agent_num[i]
             for j in range(self.n_num_grids):
-                cur_num = int(alloc[j][i]*self.agent_num[i])
-                cur_num = np.min([remaining, cur_num])
-                remaining -= cur_num
-                int_alloc[j][i] = cur_num
-        return int_alloc
+                if j == self.n_num_grids - 1:
+                    int_alloc[j][i] = remaining
+                else:
+                    cur_num = round(alloc[j][i] * self.agent_num[i])
+                    cur_num = np.min([remaining, cur_num])
+                    remaining -= cur_num
+                    int_alloc[j][i] = cur_num
+        return int_alloc.T
 
     # alloc: ngrid x nagent
     # env_type: ngrid x 1 vector
@@ -79,7 +82,7 @@ class MultiAgentEnv:
             # currently only work for [0, 1, 2, 3]
             # #city, mountain, plain, lake
             # #drone car ship
-            rand = np.zeros([num, self.n_num_agents, self.n_num_grids])
+            rand = np.zeros([num, self.n_types_agents, self.n_num_grids])
 
             # no ship in mountain & city
             rand_ship_non_zero = np.random.uniform(0, 1, [num, 2])
@@ -99,17 +102,33 @@ class MultiAgentEnv:
             rand[:, 1, 1] = rand_car_non_zero[:, 1]
             rand[:, 1, 2] = rand_car_non_zero[:, 2]
         else:
-            rand = np.random.uniform(0, 1, [num, self.n_num_agents, self.n_num_grids])
+            rand = np.random.uniform(0, 1, [num, self.n_types_agents, self.n_num_grids])
         rand_res = rand / np.sum(rand, axis=-1)[:, :, np.newaxis]
-        reward = np.asarray([self.get_reward(dist.T, env_type) for dist in rand_res])
+        reward = np.asarray([self.get_reward(dist, env_type) for dist in rand_res])
         return rand_res, reward
 
+    # collect training data for the reward network
+    def generate_random_dist_and_reward_per_env(self, env_types):
+        rand = np.random.uniform(0, 1, [env_types.shape[0], self.n_types_agents, self.n_num_grids])
+        rand_res = rand / np.sum(rand, axis=-1)[:, :, np.newaxis]
+
+        dummy = zip(rand_res, env_types)
+        reward = np.asarray([self.get_reward(dist, env_type) for dist, env_type in dummy])
+        return rand_res, reward
+
+    # collect training data for the reward network
+    def generate_fixed_dist_and_reward_per_env(self, env_types):
+        dist = np.array([[0.0, 1.0, 0, 0], [0, 0, 1.0, 0.0], [0, 0, 1.0, 0.0]])
+        reward = np.asarray([self.get_reward(dist, env_type) for env_type in env_types])
+        return np.tile(dist, (env_types.shape[0], 1)), reward
+
+
     def test_dist(self, env_type):
-        dist1 = np.ones([self.n_num_agents, self.n_num_grids]) / self.n_num_grids
-        dist2 = np.asarray([[0.1, 0.1, 0.5, 0.3]] * self.n_num_agents)
-        dist3 = np.asarray([[0.2, 0.4, 0.1, 0.3]] * self.n_num_agents)
+        dist1 = np.ones([self.n_types_agents, self.n_num_grids]) / self.n_num_grids
+        dist2 = np.asarray([[0.1, 0.1, 0.5, 0.3]] * self.n_types_agents)
+        dist3 = np.asarray([[0.2, 0.4, 0.1, 0.3]] * self.n_types_agents)
         dists = np.asarray([dist1, dist2, dist3])
-        reward = np.asarray([self.get_reward(dist.T, env_type) for dist in dists])
+        reward = np.asarray([self.get_reward(dist, env_type) for dist in dists])
         # print(dists, reward)
         return dists, reward
 

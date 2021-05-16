@@ -37,7 +37,10 @@ def get_params():
     params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 
-    params['vary_env'] = 'random'
-    # params['vary_env'] = 'static'
+    # params['vary_env'] = 'random'
+    params['vary_env'] = 'static'
     # params['vary_env'] = 'discrete'
+
+    params['use_regress_net'] = True
+    params['regress_net_loc'] = 'gan_logs/reward_weight'
     return params

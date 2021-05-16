@@ -4,7 +4,7 @@ Train the Network
 '''
 
 import torch
-from utils import generate_true_data, calc_gradient_penalty, int_to_onehot
+from utils import generate_true_data, calc_gradient_penalty, int_to_onehot, generate_true_regress_data
 from params import get_params
 from Generator import AllocationGenerator
 from Discriminator import Discriminator
@@ -13,6 +13,8 @@ from env import MultiAgentEnv
 import numpy as np
 import os
 import torch.nn.functional as F
+from RewardNet import RewardNet
+
 
 def train(
     training_steps: int = 500000,
@@ -51,7 +53,7 @@ def train(
     else:
         out_dir = os.path.join('gan_logs/', '')
         out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
-        out_dir += '_%s_%s_%s' % (params['vary_env'], params['gen_norm'], params['dis_norm'])
+        out_dir += '_%s_%s_%s_rnet:%i' % (params['vary_env'], params['gen_norm'], params['dis_norm'], params['use_regress_net'])
         # out_dir += '_%s_gpl:%g' % (params['dis_norm'], params['gp_lambda'])
         # out_dir += '_atypes:%d_enum:%d_etypes:%d' % (
         #     params['n_agent_types'], params['env_grid_num'], params['n_env_types'])
@@ -59,6 +61,12 @@ def train(
         if os.path.exists(out_dir):
             cmd = 'rm %s/*' % out_dir
             os.system(cmd)
+
+    if params['use_regress_net']:
+        reward_net = RewardNet(params['env_grid_num'] * params['n_agent_types'], n_hidden_layers=5, hidden_layer_size=256).to(
+            worker_device)
+        reward_net.load_state_dict(torch.load(params['regress_net_loc']))
+        reward_net.eval()
 
     # Optimizers
     generator_optimizer = torch.optim.Adam(generator.parameters(), lr=learning_rate)
@@ -91,13 +99,20 @@ def train(
         generated_data_raw = F.softmax(generated_data_logits, dim=-1)
         generated_data = generated_data_raw.reshape(batch_size, -1)
 
-        # if we use an idealized dataset
-        true_data, true_avg_r, true_raw_r = generate_true_data(env, params['n_samples'], env_type,
-                                                               data_method=params['data_method'],
-                                                               fake_data=generated_data_logits)
+        #generated random data based on reward net
+        if params['use_regress_net']:
+            true_data, true_avg_r, true_raw_r = generate_true_regress_data(env, params['n_samples'], env_type, reward_net,
+                                                                   data_method=params['data_method'],
+                                                                   fake_data=generated_data_logits)
+        else:
+            # if we use an idealized dataset
+            true_data, true_avg_r, true_raw_r = generate_true_data(env, params['n_samples'], env_type,
+                                                                   data_method=params['data_method'],
+                                                                   fake_data=generated_data_logits)
 
 
         true_data = torch.tensor(true_data).float().to(worker_device)
+
         if i % n_critic == 0:
             # zero the gradients on each iteration
             generator_optimizer.zero_grad()
@@ -149,10 +164,10 @@ def train(
 
         if i % print_output_every_n_steps == 0:
             print(f"env type is: {env_type}")
-            int_alloc = [env.get_integer(alloc.T).T for alloc in generated_data_raw[:5].detach().cpu()]
+            int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5].detach().cpu()]
             for alloc in int_alloc:
                 print(alloc)
-            generated_rewards = [env.get_reward(alloc.T, env_type) for alloc in generated_data_raw.detach().cpu()]
+            generated_rewards = [env.get_reward(alloc, env_type) for alloc in generated_data_raw.detach().cpu()]
             print(f"fake data average reward: {np.mean(generated_rewards)}")
             print(f"real data average reward: {true_avg_r}")
             print(f"random sample average reward: {true_raw_r}")

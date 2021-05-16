@@ -5,6 +5,9 @@ import torch
 import torch.autograd as autograd
 from evo_3 import evolve_one_gen
 from scipy.special import softmax
+from params import get_params
+# helper functions have access to params
+params = get_params()
 
 
 # re-weight a distribution of assignment based on the reward
@@ -108,8 +111,52 @@ def selection(pop, scores, k=3):
             selection_ix = ix
     return pop[selection_ix]
 
+# convert env to form ready to be taken by neural nets
+def env_to_n_onehot(env_type, n_samples):
+    env_vect = np.array([env_type] * n_samples)
+    # convert to onehot for further processing
+    env_onehot = np.array([int_to_onehot(vect, params['n_env_types']) for vect in env_vect])
+    # env_onehot = torch.from_numpy(env_onehot).view(n_samples, -1).float().to(worker_device)
+    return env_onehot
+
+def numpy_to_input_batch(array, n_samples):
+    vect = torch.from_numpy(array).view(n_samples, -1).float().cuda()
+    return vect
+
+def convert_erg_to_reward(ergs):
+    ergs = torch.clip(ergs, 5, 14)
+    rewards = 14 - ergs
+    return rewards
+
+
+def generate_true_regress_data(env, n_samples, env_type, net, data_method='sample', fake_data=None):
+    # we only need the dist, replace this later
+    allocs, _ = env.generate_random_dist_and_reward(n_samples, env_type, constraint=False)
+    if data_method is not 'sample_upper':
+        exit("rest of the sampling method needs to be double checked, utils.py")
+
+    envs = env_to_n_onehot(env_type, n_samples)
+    envs_torch = numpy_to_input_batch(envs, n_samples)
+    allocs_torch = numpy_to_input_batch(allocs, n_samples)
+    ergs = net(allocs_torch, envs_torch)
+    # process the reward, since it is not really meaningful rn
+    rewards = convert_erg_to_reward(ergs)
+    alloc_data, avg_reward = resample_data(allocs, rewards, data_method)
+    avg_random_rewards = rewards.mean()
+    return alloc_data, avg_reward, avg_random_rewards
+
+def resample_data(allocs, rewards, data_method):
+    if data_method == 'sample_upper':
+        alloc_data, avg_reward = upper_normalize_agent_assignments(allocs, rewards)
+    elif data_method == 'sample_upper_constraint':
+        alloc_data, avg_reward = upper_normalize_agent_assignments(allocs, rewards)
+    elif data_method == 'test':
+        alloc_data, avg_reward = normalize_agent_assignments(allocs, rewards)
+    elif data_method == 'sample':
+        alloc_data, avg_reward = normalize_agent_assignments(allocs, rewards)
+    return alloc_data, avg_reward
+
 def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data=None):
-    # #should only produce uniform and 0.1, 0.1, 0.5, 0.3
     if data_method == 'sample_upper':
         allocs, rewards = env.generate_random_dist_and_reward(n_samples, env_type, constraint=False)
         avg_random_rewards = rewards.mean()
@@ -121,6 +168,7 @@ def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data
         alloc_data, avg_reward = upper_normalize_agent_assignments(allocs, rewards)
         return alloc_data, avg_reward, avg_random_rewards
     elif data_method == 'test':
+        # #should only produce uniform and 0.1, 0.1, 0.5, 0.3
         allocs, rewards = env.test_dist(env_type)
     elif data_method == 'sample':
         allocs, rewards = env.generate_random_dist_and_reward(n_samples, env_type)
@@ -132,12 +180,12 @@ def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data
             #generate the next generation of population
             #take the current population, and evolve it
             allocs = np.array(fake_data.detach().cpu())
-            fitness = np.array([env.get_reward(alloc.T, env_type) for alloc in softmax(allocs, axis=-1)])
+            fitness = np.array([env.get_reward(alloc, env_type) for alloc in softmax(allocs, axis=-1)])
             new_data = evolve_one_gen(allocs.reshape(128, 12), fitness)
             new_data = softmax(new_data.reshape(128, 3, 4), axis=-1)
 
-            #TODO: what if we return logits as well, and discriminator also takes in logits?
-            new_fit_avg = np.mean([env.get_reward(alloc.T, env_type) for alloc in new_data])
+            # TODO: what if we return logits as well, and discriminator also takes in logits?
+            new_fit_avg = np.mean([env.get_reward(alloc, env_type) for alloc in new_data])
             return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
     else:
         exit("utils.py error line 55")

@@ -14,6 +14,24 @@ import numpy as np
 import os
 from collections import defaultdict
 import torch.nn.functional as F
+n_type_agents = 3
+n_num_grids = 4
+agent_num = [3, 8, 5]
+# turn continuous alloc into discrete assignment
+def get_integer(alloc):
+    alloc = alloc.T
+    int_alloc = np.zeros_like(alloc)
+    for i in range(n_type_agents):
+        remaining = agent_num[i]
+        for j in range(n_num_grids):
+            if j == n_num_grids - 1:
+                int_alloc[j][i] = remaining
+            else:
+                cur_num = round(alloc[j][i]*agent_num[i])
+                cur_num = np.min([remaining, cur_num])
+                remaining -= cur_num
+                int_alloc[j][i] = cur_num
+    return int_alloc.T
 
 def test():
     params = get_params()
@@ -34,15 +52,10 @@ def test():
         design_input_len=params['design_input_len'],
         norm=params['gen_norm'],
         layer_size=params['design_layer_size']).to(worker_device)
-    discriminator = Discriminator(alloc_length=params['env_grid_num'] * params['n_agent_types'],
-                                  env_size=params["env_input_len"],
-                                  norm=params['dis_norm']).to(worker_device)
 
     generator.load_state_dict(torch.load("./test_weights/generator_weight"))
-    discriminator.load_state_dict(torch.load("./test_weights/discriminator_weight"))
 
     generator.eval()
-    discriminator.eval()
 
     sample_size = 1000
     env_type = [0, 1, 2, 3]
@@ -57,31 +70,33 @@ def test():
     generated_data_raw = F.softmax(generated_data_logits, dim=-1)
     generated_data_raw = generated_data_raw.detach().cpu().numpy().astype(float)
     print(f"env type is: {env_type}")
-    int_alloc = [env.get_integer(alloc.T).T for alloc in generated_data_raw[:5]]
+    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5]]
+    int_alloc = [get_integer(alloc) for alloc in generated_data_raw[:5]]
+
     for alloc in int_alloc:
         print(alloc)
-    generated_rewards = np.array([env.get_reward(alloc.T, env_type) for alloc in generated_data_raw])
-    np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
-    print(f"fake data average reward: {np.mean(generated_rewards)}")
-    print(f"fake data max reward: {np.max(generated_rewards)}")
-    print(f"fake data min reward: {np.min(generated_rewards)}")
-    print(generated_rewards)
-    # print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
-    int_alloc = [env.get_integer(alloc.T).T for alloc in generated_data_raw]
-    # for alloc in int_alloc:
-    #     print(alloc)
-    int_alloc = np.array(int_alloc)
-    # print(int_alloc[0])
-    # print(int_alloc)
-    # hmm this is not right
-    print(np.abs(int_alloc - int_alloc[0]).max(axis=0))
-    print(np.argmax(np.abs(int_alloc - int_alloc[0]), axis=0))
-    # print(np.abs(int_alloc - int_alloc[0]).sum(axis=(1, 2)).mean())
-    # TODO: debug this later
-    # get_count_dict(generated_data_raw, env, env_type)
+    # generated_rewards = np.array([env.get_reward(alloc, env_type) for alloc in generated_data_raw])
+    # np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+    # print(f"fake data average reward: {np.mean(generated_rewards)}")
+    # print(f"fake data max reward: {np.max(generated_rewards)}")
+    # print(f"fake data min reward: {np.min(generated_rewards)}")
+    # print(generated_rewards)
+    # # print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
+    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw]
+    # # for alloc in int_alloc:
+    # #     print(alloc)
+    # int_alloc = np.array(int_alloc)
+    # # print(int_alloc[0])
+    # # print(int_alloc)
+    # # hmm this is not right
+    # print(np.abs(int_alloc - int_alloc[0]).max(axis=0))
+    # print(np.argmax(np.abs(int_alloc - int_alloc[0]), axis=0))
+    # # print(np.abs(int_alloc - int_alloc[0]).sum(axis=(1, 2)).mean())
+    # # TODO: debug this later
+    # # get_count_dict(generated_data_raw, env, env_type)
 
 def get_count_dict(generated_data_raw, env, env_type):
-    int_alloc = [env.get_integer(alloc.T).T for alloc in generated_data_raw]
+    int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw]
     def default():
         return 0
     dict = defaultdict(default)
