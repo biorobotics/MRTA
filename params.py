@@ -2,6 +2,7 @@
 Author: Jiaheng Hu
 Training Parameters
 '''
+import os
 
 def get_params():
     # params contains constants that are shared over all workers
@@ -21,7 +22,6 @@ def get_params():
 
     ## load the model weights if desired from a previous run
     params['load_from_file'] = None
-    params['folder'] = './logs/'
     params['log_interval'] = 300
 
     # WGAN-GP lambda
@@ -41,6 +41,14 @@ def get_params():
     params['vary_env'] = 'static'
     # params['vary_env'] = 'discrete'
 
+    params['sim_env'] = True  # Whether we want to use simulated environment
     params['use_regress_net'] = True
-    params['regress_net_loc'] = 'gan_logs/reward_weight'
+
+    params['folder'] = './logs'
+
+    params['gan_loc'] = os.path.join(params['folder'], 'gan_logs')
+    params['regress_net_loc'] = os.path.join(params['gan_loc'], 'reward_weight')
+    params['data_loc'] = os.path.join(params['folder'], 'training_data')
+    params['reward_loc'] = os.path.join(params['folder'], 'reward_logs', 'reward_agg_dataset')
+    params['test_loc'] = os.path.join(params['folder'], 'test_weights')
     return params

@@ -4,34 +4,36 @@ Test the trained network
 '''
 
 import torch
-from utils import generate_true_data, calc_gradient_penalty, int_to_onehot
+from utils import generate_true_data, calc_gradient_penalty, int_to_onehot, calc_reward_from_rnet
 from params import get_params
-from Generator import AllocationGenerator
-from Discriminator import Discriminator
+from Networks.Generator import AllocationGenerator
+from Networks.Discriminator import Discriminator
 from torch.utils.tensorboard import SummaryWriter
-from env import MultiAgentEnv
+from MAETF.simulator import MultiAgentEnv
 import numpy as np
 import os
 from collections import defaultdict
 import torch.nn.functional as F
-n_type_agents = 3
-n_num_grids = 4
-agent_num = [3, 8, 5]
-# turn continuous alloc into discrete assignment
-def get_integer(alloc):
-    alloc = alloc.T
-    int_alloc = np.zeros_like(alloc)
-    for i in range(n_type_agents):
-        remaining = agent_num[i]
-        for j in range(n_num_grids):
-            if j == n_num_grids - 1:
-                int_alloc[j][i] = remaining
-            else:
-                cur_num = round(alloc[j][i]*agent_num[i])
-                cur_num = np.min([remaining, cur_num])
-                remaining -= cur_num
-                int_alloc[j][i] = cur_num
-    return int_alloc.T
+from Networks.RewardNet import RewardNet
+
+# n_type_agents = 3
+# n_num_grids = 4
+# agent_num = [3, 8, 5]
+# # turn continuous alloc into discrete assignment
+# def get_integer(alloc):
+#     alloc = alloc.T
+#     int_alloc = np.zeros_like(alloc)
+#     for i in range(n_type_agents):
+#         remaining = agent_num[i]
+#         for j in range(n_num_grids):
+#             if j == n_num_grids - 1:
+#                 int_alloc[j][i] = remaining
+#             else:
+#                 cur_num = round(alloc[j][i]*agent_num[i])
+#                 cur_num = np.min([remaining, cur_num])
+#                 remaining -= cur_num
+#                 int_alloc[j][i] = cur_num
+#     return int_alloc.T
 
 def test():
     params = get_params()
@@ -53,9 +55,14 @@ def test():
         norm=params['gen_norm'],
         layer_size=params['design_layer_size']).to(worker_device)
 
-    generator.load_state_dict(torch.load("./test_weights/generator_weight"))
-
+    generator.load_state_dict(torch.load(os.path.join(params['test_loc'], "generator_weight")))
     generator.eval()
+
+    reward_net = RewardNet(params['n_agent_types'],
+                           env_length=params['n_env_types'],
+                           n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
+    reward_net.load_state_dict(torch.load(params['regress_net_loc']))
+    reward_net.eval()
 
     sample_size = 1000
     env_type = [0, 1, 2, 3]
@@ -70,11 +77,23 @@ def test():
     generated_data_raw = F.softmax(generated_data_logits, dim=-1)
     generated_data_raw = generated_data_raw.detach().cpu().numpy().astype(float)
     print(f"env type is: {env_type}")
-    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5]]
-    int_alloc = [get_integer(alloc) for alloc in generated_data_raw[:5]]
 
-    for alloc in int_alloc:
-        print(alloc)
+
+    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5]]
+    int_alloc = np.array([env.get_integer(alloc) for alloc in generated_data_raw])
+    rewards = calc_reward_from_rnet(env, reward_net, int_alloc, env_onehot, sample_size)
+
+    sorted, indices = torch.sort(rewards, descending=True)
+    for i in range(5):
+        print(sorted[i])
+        print(int_alloc[indices[i]])
+    # print(rewards.max())
+    # print(int_alloc[rewards.argmax()])
+    # for i in range(5):
+    #     print(int_alloc[i])
+    #     print(rewards[i])
+
+
     # generated_rewards = np.array([env.get_reward(alloc, env_type) for alloc in generated_data_raw])
     # np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
     # print(f"fake data average reward: {np.mean(generated_rewards)}")

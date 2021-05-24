@@ -2,11 +2,11 @@
 # Sample a batch of env and alloc, test the reward net prediction
 
 import numpy as np
-from RewardNet import RewardNet
+from Networks.RewardNet import RewardNet
 import torch
 from params import get_params
 from utils import int_to_onehot
-from env import MultiAgentEnv
+from MAETF.simulator import MultiAgentEnv
 import os
 
 params = get_params()
@@ -15,7 +15,13 @@ worker_device = torch.device("cuda:0")
 
 if __name__ == '__main__':
     # 3*3
-    net = RewardNet(params['env_grid_num'] * params['n_agent_types'], n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
+    net = RewardNet(params['n_agent_types'],
+                    env_length=params['n_env_types'],
+                    n_hidden_layers=5,
+                    hidden_layer_size=256).to(worker_device)
+
+    # TODO: left off here: in the process of adding test_simulation_reward
+
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
@@ -25,7 +31,7 @@ if __name__ == '__main__':
 
     loss_func = torch.nn.MSELoss()
 
-    out_dir = os.path.join('reward_logs/', 'reward_agg')
+    out_dir = os.path.join('logs/reward_logs/', 'reward_agg')
     # out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
     net.load_state_dict(torch.load(os.path.join(out_dir, "reward_weight")))
     net.eval()
@@ -46,6 +52,8 @@ if __name__ == '__main__':
         # convert numpy array to tensor in shape of input size
         alloc_batch = torch.from_numpy(alloc_batch).view(sample_size, -1).float().to(worker_device)
         rewards = torch.from_numpy(rewards).float().reshape((-1, 1)).to(worker_device)
+
+
 
         prediction = net(alloc_batch, env_onehot)
         loss = loss_func(prediction, rewards)

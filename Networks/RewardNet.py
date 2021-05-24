@@ -5,19 +5,19 @@ Reward Network
 
 import torch
 import torch.nn as nn
-from params import get_params
-
-params = get_params()
-env_size = params["env_input_len"]
-
+# from params import get_params
+#
+# params = get_params()
+# env_size = params["env_input_len"]
+# block_env_size = params['n_env_types']
 
 class RewardNet(nn.Module):
-    def __init__(self, input_length: int, n_hidden_layers=2, hidden_layer_size=128):
+    def __init__(self, input_length, env_length, n_hidden_layers=2, hidden_layer_size=128):
         super(RewardNet, self).__init__()
 
         # preprocessing - can be changed
         self.input_layer = nn.Linear(int(input_length), hidden_layer_size//2)
-        self.embedding_layer = nn.Linear(env_size, hidden_layer_size//2)
+        self.embedding_layer = nn.Linear(int(env_length), hidden_layer_size//2)
 
         # TODO: change to multiply?
 
@@ -34,13 +34,13 @@ class RewardNet(nn.Module):
             self.bn_list.append(nn.BatchNorm1d(hidden_layer_size))
 
         self.drops = nn.Dropout(0.3)
-        self.bn_conv_in = nn.BatchNorm1d(env_size)
+        self.bn_conv_in = nn.BatchNorm1d(env_length)
 
-    def forward(self, robot, terrain_conv_output):
+    def forward(self, robot, env_vector):
         # print(design_latent.shape)
         # print(terrain_conv_output.shape)
         x1 = self.activation(self.input_layer(robot))
-        x2 = self.activation(self.embedding_layer(self.bn_conv_in(terrain_conv_output)))
+        x2 = self.activation(self.embedding_layer(self.bn_conv_in(env_vector)))
 
         x = torch.cat((x1, x2), dim=-1)
 

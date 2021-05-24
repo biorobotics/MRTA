@@ -6,9 +6,10 @@ import torch.autograd as autograd
 from evo_3 import evolve_one_gen
 from scipy.special import softmax
 from params import get_params
+
+
 # helper functions have access to params
 params = get_params()
-
 
 # re-weight a distribution of assignment based on the reward
 # Only take upper corner
@@ -23,6 +24,7 @@ def upper_normalize_agent_assignments(allocs, rewards, batch_size=128):
     total_r = 0
     reward_baseline = rewards.mean() + (rewards.max() - rewards.mean())/2
     rewards -= reward_baseline
+    # print(reward_baseline)
 
     # each robot should only appear once
     for ind, robot in enumerate(allocs):
@@ -30,6 +32,7 @@ def upper_normalize_agent_assignments(allocs, rewards, batch_size=128):
         reward = rewards[ind]
         robot_str = robot.tostring()
         if reward > 0:
+            # print(robot, reward)
             dict[robot_str] += reward
             total_r += reward
 
@@ -119,30 +122,54 @@ def env_to_n_onehot(env_type, n_samples):
     # env_onehot = torch.from_numpy(env_onehot).view(n_samples, -1).float().to(worker_device)
     return env_onehot
 
-def numpy_to_input_batch(array, n_samples):
-    vect = torch.from_numpy(array).view(n_samples, -1).float().cuda()
+def numpy_to_input_batch(array, batch_dim):
+    vect = torch.from_numpy(array).reshape(batch_dim, -1).float().cuda()
     return vect
 
 def convert_erg_to_reward(ergs):
-    ergs = torch.clip(ergs, 5, 14)
-    rewards = 14 - ergs
+    # print(ergs)
+    ergs = torch.clip(ergs, 0, 16)
+    rewards = 16 - ergs
     return rewards
 
+def calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples):
+    # print("start")
+    # print(int_allocs[:4])
+    allocs_reshape = int_allocs.swapaxes(-1, -2)
+    allocs_torch = numpy_to_input_batch(allocs_reshape, env.n_num_grids * n_samples)
+    envs_torch = envs_torch.reshape(-1, env.n_types_terrain)
 
+    ergs = net(allocs_torch, envs_torch)
+    # print(allocs_torch[:4])
+    # print(envs_torch[:4])
+    # print(ergs[:4])
+    ergs = ergs.reshape(-1, env.n_num_grids).sum(axis=-1)
+    # print(ergs[:1])
+    return convert_erg_to_reward(ergs)
+
+# allocs: n_sample x 3 x 4
+# we want (n_sample*4) * 3
+# How do we sum the four of them...?
 def generate_true_regress_data(env, n_samples, env_type, net, data_method='sample', fake_data=None):
     # we only need the dist, replace this later
-    allocs, _ = env.generate_random_dist_and_reward(n_samples, env_type, constraint=False)
+    # TODO: this should be continuous, convert to int later
     if data_method is not 'sample_upper':
         exit("rest of the sampling method needs to be double checked, utils.py")
-
+    int_allocs, allocs = env.generate_random_alloc(n_samples)
     envs = env_to_n_onehot(env_type, n_samples)
-    envs_torch = numpy_to_input_batch(envs, n_samples)
-    allocs_torch = numpy_to_input_batch(allocs, n_samples)
-    ergs = net(allocs_torch, envs_torch)
-    # process the reward, since it is not really meaningful rn
-    rewards = convert_erg_to_reward(ergs)
-    alloc_data, avg_reward = resample_data(allocs, rewards, data_method)
+    envs_torch = numpy_to_input_batch(envs, env.n_num_grids * n_samples)
+    rewards = calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples)
+    # print("inital int")
+    # print(int_allocs[:5])
+
     avg_random_rewards = rewards.mean()
+    alloc_data, avg_reward = resample_data(allocs, rewards, data_method)
+    # print("resampled cont")
+    # print(alloc_data[:5])
+    # int_alloc = np.array(
+    # [env.get_integer(alloc) for alloc in np.array(alloc_data).reshape(128, env.n_types_agents, -1)[:5]])
+    # print("resampled int")
+    # print(int_alloc)
     return alloc_data, avg_reward, avg_random_rewards
 
 def resample_data(allocs, rewards, data_method):

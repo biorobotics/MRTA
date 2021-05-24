@@ -27,7 +27,9 @@ worker_device = torch.device("cuda:0")
 
 if __name__ == '__main__':
     # 3*3
-    net = RewardNet(params['env_grid_num'] * params['n_agent_types'], n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
+    net = RewardNet(params['env_grid_num'] * params['n_agent_types'],
+                    env_length=params["env_input_len"],
+                    n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],

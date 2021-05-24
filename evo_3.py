@@ -6,7 +6,7 @@ Contains helper function for evolution
 
 import numpy as np
 import math
-from env import MultiAgentEnv
+from MAETF.simulator import MultiAgentEnv
 from params import get_params
 from scipy.special import softmax
 
@@ -16,7 +16,15 @@ def fitness_function(x):
     # x /= x.sum(axis=1)
     #instead, apply logistic
     x = softmax(x, axis=1)
-    return env.get_reward(x.T, env_type)
+    return - env.get_reward(x, terrain)[0]
+
+# # the function that we want to maximize
+# def fitness_function(x):
+#     x = np.asarray(x).reshape([3, 4])
+#     # x /= x.sum(axis=1)
+#     #instead, apply logistic
+#     x = softmax(x, axis=1)
+#     return env.get_reward(x.T, env_type)
 
 # def fitness_function(x):
 #     """
@@ -189,11 +197,9 @@ def solve():
     # Calculate the fitness of the population
     fitness = calculate_fitness(population)
 
-
-
     gen_n = 0
     while True:
-
+        print(f"start of gen {gen_n}")
         gen_n += 1
 
         population = evolve_one_gen(population, fitness)
@@ -204,8 +210,6 @@ def solve():
         print(fitness.mean())
 
         # fitness, population = sort_by_fitness(fitness, population)
-
-
         if gen_n >= max_gen:
             break
 
@@ -249,7 +253,7 @@ def get_selection_probabilities(selection_strategy, pop_keep):
     elif selection_strategy == "random":
         return np.linspace(0, 1, pop_keep + 1)
 
-
+# this takes forever to run
 if __name__ == "__main__":
     selection_strategy = "roulette_wheel"
     selection_rate = 0.5
@@ -272,7 +276,11 @@ if __name__ == "__main__":
                         n_num_agents=params['n_agent_types'],
                         n_env_types=params['n_env_types'])
 
-    env_type = [0, 1, 2, 3]
+    # env_type = [0, 1, 2, 3]
+    terrain = np.zeros((50, 50), dtype=np.int32)
+    terrain[0:25, 0:25] = 1
+    terrain[0:25, 25:] = 2
+    terrain[25:, 25:] = 3
     pop, fit = solve()
     print(to_pop_format(pop))
     print(fit)

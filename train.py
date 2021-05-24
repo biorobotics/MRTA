@@ -4,16 +4,16 @@ Train the Network
 '''
 
 import torch
-from utils import generate_true_data, calc_gradient_penalty, int_to_onehot, generate_true_regress_data
+from utils import generate_true_data, calc_gradient_penalty, int_to_onehot, generate_true_regress_data, calc_reward_from_rnet
 from params import get_params
-from Generator import AllocationGenerator
-from Discriminator import Discriminator
+from Networks.Generator import AllocationGenerator
+from Networks.Discriminator import Discriminator
 from torch.utils.tensorboard import SummaryWriter
-from env import MultiAgentEnv
+
 import numpy as np
 import os
 import torch.nn.functional as F
-from RewardNet import RewardNet
+from Networks.RewardNet import RewardNet
 
 
 def train(
@@ -26,6 +26,11 @@ def train(
     params = get_params()
     batch_size = params['batch_size']
 
+    if params['sim_env']:
+        from MAETF.simulator import MultiAgentEnv
+    else:
+        exit('pls use simulator env (train.py)')
+        from env import MultiAgentEnv
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
@@ -63,8 +68,9 @@ def train(
             os.system(cmd)
 
     if params['use_regress_net']:
-        reward_net = RewardNet(params['env_grid_num'] * params['n_agent_types'], n_hidden_layers=5, hidden_layer_size=256).to(
-            worker_device)
+        reward_net = RewardNet(params['n_agent_types'],
+                               env_length=params['n_env_types'],
+                               n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
         reward_net.load_state_dict(torch.load(params['regress_net_loc']))
         reward_net.eval()
 
@@ -99,17 +105,17 @@ def train(
         generated_data_raw = F.softmax(generated_data_logits, dim=-1)
         generated_data = generated_data_raw.reshape(batch_size, -1)
 
-        #generated random data based on reward net
+        # generated random data based on reward net
         if params['use_regress_net']:
-            true_data, true_avg_r, true_raw_r = generate_true_regress_data(env, params['n_samples'], env_type, reward_net,
-                                                                   data_method=params['data_method'],
-                                                                   fake_data=generated_data_logits)
+            true_data, true_avg_r, true_raw_r = generate_true_regress_data(env, params['n_samples'],
+                                                                           env_type, reward_net,
+                                                                           data_method=params['data_method'],
+                                                                           fake_data=generated_data_logits)
         else:
             # if we use an idealized dataset
             true_data, true_avg_r, true_raw_r = generate_true_data(env, params['n_samples'], env_type,
                                                                    data_method=params['data_method'],
                                                                    fake_data=generated_data_logits)
-
 
         true_data = torch.tensor(true_data).float().to(worker_device)
 
@@ -164,14 +170,25 @@ def train(
 
         if i % print_output_every_n_steps == 0:
             print(f"env type is: {env_type}")
-            int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5].detach().cpu()]
-            for alloc in int_alloc:
+            int_alloc = np.array([env.get_integer(alloc) for alloc in generated_data_raw.detach().cpu().numpy()])
+            for alloc in int_alloc[:5]:
                 print(alloc)
-            generated_rewards = [env.get_reward(alloc, env_type) for alloc in generated_data_raw.detach().cpu()]
-            print(f"fake data average reward: {np.mean(generated_rewards)}")
+
+            # generated_rewards = [env.get_reward(alloc, env_type) for alloc in generated_data_raw.detach().cpu().numpy()]
+            # print(f"fake data average reward: {np.mean(generated_rewards)}")
+            # writer.add_scalar('R' + '/fake_avg_reward', np.mean(generated_rewards), i)
+
+            generated_rewards = calc_reward_from_rnet(env, reward_net, int_alloc, env_onehot, batch_size)
+            # print(generated_rewards.shape)
+            # print(generated_rewards)
+            print(f"fake data average reward: {generated_rewards.mean()}")
+            writer.add_scalar('R' + '/fake_avg_reward', generated_rewards.mean(), i)
+
+
+
             print(f"real data average reward: {true_avg_r}")
             print(f"random sample average reward: {true_raw_r}")
-            writer.add_scalar('R' + '/fake_avg_reward', np.mean(generated_rewards), i)
+
             writer.add_scalar('R' + '/true_avg_reward', true_avg_r, i)
             writer.add_scalar('R' + '/true_raw_reward', true_raw_r, i)
             torch.save(generator.state_dict(), os.path.join(out_dir, "generator_weight"))

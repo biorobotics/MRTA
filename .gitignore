@@ -1,0 +1,11 @@
+*.npy
+bullet_vis/dtd/
+bullet_vis/random_urdfs/
+bullet_vis/robot_urdfs/
+bullet_vis/textures/
+bullet_vis/videos/
+logs/
+old_data/
+__pycache__
+.idea/
+MAETF/
