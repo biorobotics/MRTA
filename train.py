@@ -28,9 +28,10 @@ def train(
 
     if params['sim_env']:
         from MAETF.simulator import MultiAgentEnv
+        env_name = 'simenv'
     else:
-        exit('pls use simulator env (train.py)')
-        from env import MultiAgentEnv
+        from toy_env import MultiAgentEnv
+        env_name = 'toyenv'
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
@@ -52,13 +53,17 @@ def train(
 
     if params['load_from_file']:
         # load weight
+        exit("err: change the path (line 56 train.py)")
         out_dir = "./gan_logs/"+params['load_from_file']
         generator.load_state_dict(torch.load("./gan_logs/"+params['load_from_file']+"/generator_weight"))
         discriminator.load_state_dict(torch.load("./gan_logs/"+params['load_from_file']+"/discriminator_weight"))
     else:
-        out_dir = os.path.join('gan_logs/', '')
-        out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
-        out_dir += '_%s_%s_%s_rnet:%i' % (params['vary_env'], params['gen_norm'], params['dis_norm'], params['use_regress_net'])
+        out_dir = os.path.join(params['gan_loc'], "")
+        out_dir += '%s_nsamp:%d_%s' % (params['data_method'], params['n_samples'], env_name)
+        out_dir += '_%s_%s_%s_rnet:%i' % (params['vary_env'],
+                                          params['gen_norm'],
+                                          params['dis_norm'],
+                                          params['use_regress_net'])
         # out_dir += '_%s_gpl:%g' % (params['dis_norm'], params['gp_lambda'])
         # out_dir += '_atypes:%d_enum:%d_etypes:%d' % (
         #     params['n_agent_types'], params['env_grid_num'], params['n_env_types'])
@@ -174,17 +179,13 @@ def train(
             for alloc in int_alloc[:5]:
                 print(alloc)
 
-            # generated_rewards = [env.get_reward(alloc, env_type) for alloc in generated_data_raw.detach().cpu().numpy()]
-            # print(f"fake data average reward: {np.mean(generated_rewards)}")
-            # writer.add_scalar('R' + '/fake_avg_reward', np.mean(generated_rewards), i)
+            if params['sim_env']:
+                generated_rewards = calc_reward_from_rnet(env, reward_net, int_alloc, env_onehot, batch_size)
+            else:
+                generated_rewards = np.array([env.get_integer_reward(alloc, env_type) for alloc in int_alloc])
 
-            generated_rewards = calc_reward_from_rnet(env, reward_net, int_alloc, env_onehot, batch_size)
-            # print(generated_rewards.shape)
-            # print(generated_rewards)
             print(f"fake data average reward: {generated_rewards.mean()}")
             writer.add_scalar('R' + '/fake_avg_reward', generated_rewards.mean(), i)
-
-
 
             print(f"real data average reward: {true_avg_r}")
             print(f"random sample average reward: {true_raw_r}")

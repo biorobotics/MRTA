@@ -6,7 +6,8 @@ Contains helper function for evolution
 
 import numpy as np
 import math
-from MAETF.simulator import MultiAgentEnv
+# from MAETF.simulator import MultiAgentEnv
+from toy_env import MultiAgentEnv
 from params import get_params
 from scipy.special import softmax
 
@@ -16,7 +17,8 @@ def fitness_function(x):
     # x /= x.sum(axis=1)
     #instead, apply logistic
     x = softmax(x, axis=1)
-    return - env.get_reward(x, terrain)[0]
+    terrain = [0, 1, 2, 3]
+    return env.get_reward(x, terrain)
 
 # # the function that we want to maximize
 # def fitness_function(x):
@@ -183,37 +185,7 @@ def evolve_one_gen(population, fitness):
     population = mutate_population(population, n_mutations, input_limits)
     return population
 
-def solve():
-    """
-    Performs the genetic algorithm optimization according to the
-    global scope initialized parameters
 
-    :return: (best individual, best fitness)
-    """
-
-    # initialize the population
-    population = initialize_population(pop_size, n_genes, input_limits)
-
-    # Calculate the fitness of the population
-    fitness = calculate_fitness(population)
-
-    gen_n = 0
-    while True:
-        print(f"start of gen {gen_n}")
-        gen_n += 1
-
-        population = evolve_one_gen(population, fitness)
-
-        # Get new population's fitness. Since the fittest element does not change,
-        # we do not need to re calculate its fitness
-        fitness = np.hstack((fitness[0], calculate_fitness(population[1:, :])))
-        print(fitness.mean())
-
-        # fitness, population = sort_by_fitness(fitness, population)
-        if gen_n >= max_gen:
-            break
-
-    return population[0], fitness[0]
 
 
 def calculate_fitness(population):
@@ -253,6 +225,36 @@ def get_selection_probabilities(selection_strategy, pop_keep):
     elif selection_strategy == "random":
         return np.linspace(0, 1, pop_keep + 1)
 
+def solve():
+    """
+    Performs the genetic algorithm optimization according to the
+    global scope initialized parameters
+
+    :return: (best individual, best fitness)
+    """
+
+    # initialize the population
+    population = initialize_population(pop_size, n_genes, input_limits)
+
+    # Calculate the fitness of the population
+    fitness = calculate_fitness(population)
+
+    gen_n = 0
+    while True:
+        print(f"start of gen {gen_n}")
+        gen_n += 1
+        population = evolve_one_gen(population, fitness)
+        # Get new population's fitness. Since the fittest element does not change,
+        # we do not need to re calculate its fitness
+        fitness = np.hstack((fitness[0], calculate_fitness(population[1:, :])))
+        print(fitness.mean())
+
+        #
+        if gen_n >= max_gen:
+            break
+    fitness, population = sort_by_fitness(fitness, population)
+    return population[0], fitness[0]
+
 # this takes forever to run
 if __name__ == "__main__":
     selection_strategy = "roulette_wheel"
@@ -270,17 +272,19 @@ if __name__ == "__main__":
     # probability intervals, needed for roulete_wheel and random selection strategies
     prob_intervals = get_selection_probabilities(selection_strategy, pop_keep)
 
-    max_gen = 300  # Maximum number of generations
+    max_gen = 50  # Maximum number of generations
     params = get_params()
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
                         n_env_types=params['n_env_types'])
 
     # env_type = [0, 1, 2, 3]
-    terrain = np.zeros((50, 50), dtype=np.int32)
-    terrain[0:25, 0:25] = 1
-    terrain[0:25, 25:] = 2
-    terrain[25:, 25:] = 3
+    # terrain = np.zeros((50, 50), dtype=np.int32)
+    # terrain[0:25, 0:25] = 1
+    # terrain[0:25, 25:] = 2
+    # terrain[25:, 25:] = 3
     pop, fit = solve()
-    print(to_pop_format(pop))
+    pop = to_pop_format(pop)
+    print(pop)
+    print(env.get_integer(pop))
     print(fit)

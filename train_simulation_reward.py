@@ -44,6 +44,14 @@ def train_test_split(data, portion):
     test = data[n_train:]
     return train, test
 
+def load_data(params):
+    data_loc = params['data_loc']
+    allocs = np.load(os.path.join(data_loc, "assignments.npy"))
+    ergs = np.load(os.path.join(data_loc, "ergs.npy")) * 1000  # Just to make it numerically stable
+    env_type = np.load(os.path.join(data_loc, "env_labels.npy"))
+    assert (allocs.shape[0] == ergs.shape[0] == env_type.shape[0])
+    return allocs, ergs, env_type
+
 # change shape, flatten entries, remove nan
 def preprocess_data(ergs, allocs, env_type):
     # print(env.get_integer(allocs[0]))
@@ -60,12 +68,7 @@ def preprocess_data(ergs, allocs, env_type):
     # print(allocs[0])
     return ergs, allocs, env_type
 
-def load_data(params):
-    data_loc = params['data_loc']
-    allocs = np.load(os.path.join(data_loc, "assignments.npy"))
-    ergs = np.load(os.path.join(data_loc, "ergs.npy")) * 1000  # Just to make it numerically stable
-    env_type = np.load(os.path.join(data_loc, "env_labels.npy"))
-    return allocs, ergs,  env_type
+
 
 if __name__ == '__main__':
     net = RewardNet(params['n_agent_types'],
@@ -74,9 +77,6 @@ if __name__ == '__main__':
                     hidden_layer_size=256).to(worker_device)
 
     allocs, ergs, env_type = load_data(params)
-    assert(allocs.shape[0] == ergs.shape[0] == env_type.shape[0])
-    num_data = allocs.shape[0]
-
     ergs, allocs, env_type = preprocess_data(ergs, allocs, env_type)
     # print(np.max(ergs))
     # print(np.min(ergs))

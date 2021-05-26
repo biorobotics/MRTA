@@ -3,13 +3,14 @@ import numpy as np
 import math
 import torch
 import torch.autograd as autograd
-from evo_3 import evolve_one_gen
+from evo_function import evolve_one_gen
 from scipy.special import softmax
 from params import get_params
 
 
 # helper functions have access to params
 params = get_params()
+
 
 # re-weight a distribution of assignment based on the reward
 # Only take upper corner
@@ -94,7 +95,7 @@ def normalize_agent_assignments(allocs, rewards):
     weighted_r /= len(robot_list)
 
     # redo if no robot gets sampled (should be rare)
-    if(len(robot_list) == 0):
+    if len(robot_list) == 0:
         return normalize_agent_assignments(allocs, rewards)
 
     # resample it back to batch size
@@ -104,15 +105,16 @@ def normalize_agent_assignments(allocs, rewards):
     return robot_list, weighted_r + reward_min
 
 
-# tournament selection
-def selection(pop, scores, k=3):
-    # first random selection
-    selection_ix = np.random.randint(len(pop))
-    for ix in np.random.randint(0, len(pop), k-1):
-        # check if better (e.g. perform a tournament)
-        if scores[ix] < scores[selection_ix]:
-            selection_ix = ix
-    return pop[selection_ix]
+# # tournament selection
+# def selection(pop, scores, k=3):
+#     # first random selection
+#     selection_ix = np.random.randint(len(pop))
+#     for ix in np.random.randint(0, len(pop), k-1):
+#         # check if better (e.g. perform a tournament)
+#         if scores[ix] < scores[selection_ix]:
+#             selection_ix = ix
+#     return pop[selection_ix]
+
 
 # convert env to form ready to be taken by neural nets
 def env_to_n_onehot(env_type, n_samples):
@@ -122,15 +124,18 @@ def env_to_n_onehot(env_type, n_samples):
     # env_onehot = torch.from_numpy(env_onehot).view(n_samples, -1).float().to(worker_device)
     return env_onehot
 
+
 def numpy_to_input_batch(array, batch_dim):
     vect = torch.from_numpy(array).reshape(batch_dim, -1).float().cuda()
     return vect
+
 
 def convert_erg_to_reward(ergs):
     # print(ergs)
     ergs = torch.clip(ergs, 0, 16)
     rewards = 16 - ergs
     return rewards
+
 
 def calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples):
     # print("start")

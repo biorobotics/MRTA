@@ -47,35 +47,59 @@ class MultiAgentEnv:
     # info: ngrid x 1 vector
     def get_reward(self, alloc, env_type, info=[1] * 4):
         int_alloc = self.get_integer(alloc)
+        reward = self.get_integer_reward(int_alloc, env_type, info)
+        return reward
+
+    def get_integer_reward(self, int_alloc, env_type, info=[1] * 4):
         reward = 0
         for i in range(self.n_num_grids):
-            cur_reward = self.get_grid_reward(int_alloc[i], info[i], env_type[i])
+            cur_reward = self.get_grid_reward(int_alloc[:, i], info[i], env_type[i])
             reward += cur_reward
         return reward
 
+    # def get_grid_reward(self, agents_num, info, env_type):
+    #     plane_num = agents_num[0]
+    #     car_num = agents_num[1]
+    #     ship_num = agents_num[2]
+    #     # 0, plain: car + aircraft, each single 1: 0.1, combo: 1.0
+    #     # 1, mountain: aircraft:0.3, rest: 0.1
+    #     # 2, river: ship + car:1.0, rest: 0.1
+    #     # 3, lake: ship: 0.25, rest: 0.1
+    #     if env_type == 0:
+    #         combo_r = np.min([plane_num, car_num])
+    #         single_r = np.abs(plane_num - car_num) * 0.1
+    #         rest_r = ship_num * 0.1
+    #         reward = combo_r + single_r + rest_r
+    #     elif env_type == 1:
+    #         reward = plane_num * 0.3 + (car_num + ship_num) * 0.1
+    #     elif env_type == 2:
+    #         combo_r = np.min([ship_num, car_num])
+    #         single_r = np.abs(ship_num - car_num) * 0.1
+    #         rest_r = plane_num * 0.1
+    #         reward = combo_r + single_r + rest_r
+    #     elif env_type == 3:
+    #         reward = ship_num * 0.25 + (car_num + plane_num) * 0.1
+    #     return reward * info
+
+    # Version 2: this should be closer to the actual simulation
     def get_grid_reward(self, agents_num, info, env_type):
         plane_num = agents_num[0]
         car_num = agents_num[1]
         ship_num = agents_num[2]
-        # 0, plain: car + aircraft, each single 1: 0.1, combo: 1.0
-        # 1, mountain: aircraft:0.3, rest: 0.1
-        # 2, river: ship + car:1.0, rest: 0.1
-        # 3, lake: ship: 0.25, rest: 0.1
+        # 0, plain: car:5, aircraft:5, ship:0
+        # 1, mountain: car:2, aircraft:5, ship:0
+        # 2, city: car:5, aircraft:3, ship:2
+        # 3, lake: car:0, aircraft:5, ship:5
         if env_type == 0:
-            combo_r = np.min([plane_num, car_num])
-            single_r = np.abs(plane_num - car_num) * 0.1
-            rest_r = ship_num * 0.1
-            reward = combo_r + single_r + rest_r
+            reward = car_num * 5 + plane_num * 5 + ship_num * 0
         elif env_type == 1:
-            reward = plane_num * 0.3 + (car_num + ship_num) * 0.1
+            reward = car_num * 2 + plane_num * 5 + ship_num * 0
         elif env_type == 2:
-            combo_r = np.min([ship_num, car_num])
-            single_r = np.abs(ship_num - car_num) * 0.1
-            rest_r = plane_num * 0.1
-            reward = combo_r + single_r + rest_r
+            reward = car_num * 5 + plane_num * 3 + ship_num * 5
         elif env_type == 3:
-            reward = ship_num * 0.25 + (car_num + plane_num) * 0.1
-        return reward * info
+            reward = car_num * 0 + plane_num * 5 + ship_num * 5
+        reward = np.sqrt(reward)
+        return reward
 
     def generate_random_dist_and_reward(self, num, env_type, constraint=False):
         if constraint:
@@ -134,11 +158,11 @@ class MultiAgentEnv:
 
 if __name__ == '__main__':
     env = MultiAgentEnv()
-    env.test_dist(env_type=[0, 1, 2, 3])
+    # print(env.test_dist(env_type=[0, 1, 2, 3]))
 
-    # robot, reward = env.generate_random_dist_and_reward(50, env_type=[0, 1, 2, 3])
-    # max_reward = np.max(reward)
-    # min_reward = np.min(reward)
-    # max_robot = robot[np.argmax(reward)]
-    # print(max_reward, min_reward, max_robot, env.getInteger(max_robot.T))
-    # print(reward.mean())
+    robot, reward = env.generate_random_dist_and_reward(50, env_type=[0, 1, 2, 3])
+    max_reward = np.max(reward)
+    min_reward = np.min(reward)
+    max_robot = robot[np.argmax(reward)]
+    print(max_reward, min_reward, max_robot, env.get_integer(max_robot))
+    print(reward.mean())

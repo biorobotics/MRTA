@@ -1,10 +1,13 @@
-import bullet_vis as p
+import pybullet as p
 import numpy as np
 from time import sleep
+import math
 
 floor_scaling = 0.2
 init_pos = 15 * floor_scaling
 robot_pos_scaling = floor_scaling * 2 * 30
+interp = 10
+sleep_t = 1 / interp
 
 physicsClient = p.connect(p.GUI, options='--background_color_red=1.0 --background_color_green=1.0 --background_color_blue=1.0')
 p.setAdditionalSearchPath("./robot_urdfs")
@@ -36,17 +39,20 @@ def load_robot(loc_name):
     location = np.load(loc_name)
     id_list = []
     for i in range(location.shape[0]):
-        scale = 1
+        scale = 0.1
         if location[i, 0] == 'lime':
             # car
-            urdf = 'car.urdf'
+            urdf = 'jeep.urdf'
+            # print("loaded car")
         elif location[i, 0] == 'lightblue':
             # ship (duck)
-            urdf = 'duck_vhacd.urdf'
-            scale = 3
+            urdf = 'ship.urdf'
+            # scale = 3
+            # print("loaded ship")
         elif location[i, 0] == 'red':
             # drone
-            urdf = 'drone.urdf'
+            urdf = 'aircraft.urdf'
+            # print("loaded aircraft")
         else:
             print(location[i, 0])
             # print('lime' is 'lime')
@@ -57,34 +63,85 @@ def load_robot(loc_name):
     # Todo: update loc every simulation step
     return id_list, location
 
+
 def update_robot(time, id_list, location):
 
-    for i in range(len(id_list)):
-        new_pos_x = location[i, 1][time, 0] * robot_pos_scaling - robot_pos_scaling / 2
-        new_pos_y = location[i, 1][time, 1] * robot_pos_scaling - robot_pos_scaling / 2
-        z_pos = 0
-        quat = [0, 0, 0, 1]
-        if location[i, 0] == 'lime':
-            # car
-            z_pos = 0.15
-        elif location[i, 0] == 'lightblue':
-            # ship (duck)
-            quat = [0.7071068, 0, 0, 0.7071068]
-        elif location[i, 0] == 'red':
-            z_pos = 0.8
-        else:
-            exit("error line 73")
-        p.resetBasePositionAndOrientation(id_list[i], [new_pos_x, new_pos_y, z_pos], quat)
+    if time == 0:
+        for i in range(len(id_list)):
+            new_pos_x = location[i, 1][time, 0] * robot_pos_scaling - robot_pos_scaling / 2
+            new_pos_y = location[i, 1][time, 1] * robot_pos_scaling - robot_pos_scaling / 2
+            z_pos = 0
+
+            # TODO: change quat
+            quat = [0, 0, 0, 1]
+            if location[i, 0] == 'lime':
+                # car
+                # z_pos = 0.15
+                pass
+            elif location[i, 0] == 'lightblue':
+                # ship (duck)
+                # quat = [0.7071068, 0, 0, 0.7071068]
+                pass
+            elif location[i, 0] == 'red':
+                z_pos = 2
+                #oh it's because of the topdown view
+                new_pos_x*=0.8
+                new_pos_y*=0.8
+            else:
+                exit("error line 73")
+            p.resetBasePositionAndOrientation(id_list[i], [new_pos_x, new_pos_y, z_pos], quat)
+        p.stepSimulation()
+        sleep(sleep_t)
+    else:
+        
+        for j in range(interp):
+            for i in range(len(id_list)):
+                old_pos_x = location[i, 1][time-1, 0] * robot_pos_scaling - robot_pos_scaling / 2
+                old_pos_y = location[i, 1][time-1, 1] * robot_pos_scaling - robot_pos_scaling / 2
+
+                tar_pos_x = location[i, 1][time, 0] * robot_pos_scaling - robot_pos_scaling / 2
+                tar_pos_y = location[i, 1][time, 1] * robot_pos_scaling - robot_pos_scaling / 2
+
+                angle = math.atan2(tar_pos_y-old_pos_y, tar_pos_x-old_pos_x)
+                angle += np.pi / 2
+                quat = p.getQuaternionFromEuler([0, 0, angle])
+
+                alpha = (float(j)+1) / interp
+                new_pos_x = tar_pos_x * alpha + old_pos_x * (1 - alpha)
+                new_pos_y = tar_pos_y * alpha + old_pos_y * (1 - alpha)
+                z_pos = 0
+
+                # TODO: change quat
+                # quat = [0, 0, 0, 1]
+                if location[i, 0] == 'lime':
+                    # car
+                    # z_pos = 0.15
+                    pass
+                elif location[i, 0] == 'lightblue':
+                    # ship (duck)
+                    # quat = [0.7071068, 0, 0, 0.7071068]
+                    pass
+                elif location[i, 0] == 'red':
+                    z_pos = 2
+                    #oh it's because of the topdown view
+                    new_pos_x*=0.8
+                    new_pos_y*=0.8
+                else:
+                    exit("error line 118")
+                p.resetBasePositionAndOrientation(id_list[i], [new_pos_x, new_pos_y, z_pos], quat)
+            p.stepSimulation()
+            sleep(sleep_t)
+
 
 if __name__ == '__main__':
     p.resetSimulation()  # remove all objects from the world and reset the world to initial conditions. (not needed here but kept for example)
 
     load_terrain()
-    loc_name = "loc_t.npy"
+    loc_name = "loc.npy"
     id_list, location = load_robot(loc_name)
 
     p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=physicsClient)
-    p.resetDebugVisualizerCamera(7, 0, -89, [0, 0, 0], physicsClientId=physicsClient)  # I like this view
+    p.resetDebugVisualizerCamera(5, 0, -45, [0, 0, 0], physicsClientId=physicsClient)  # I like this view
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0, physicsClientId=physicsClient)
 
     vid_path = 'videos/test.mp4'
@@ -96,5 +153,4 @@ if __name__ == '__main__':
 
     for i in range(20):
         update_robot(i, id_list, location)
-        p.stepSimulation()
-        sleep(1/2)
+        

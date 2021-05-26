@@ -8,7 +8,6 @@ def get_params():
     # params contains constants that are shared over all workers
     params = dict()
 
-    # TODO: anneal temperature over many episodes to a lower number
     params['design_input_len'] = 2  # latent variable
     params['design_lr'] = 1e-5
     params['gen_n_hidden'] = 3  # number of hidden layers in the design and reward networks
@@ -31,18 +30,17 @@ def get_params():
     params['dis_norm'] = 'none'
     # params['dis_norm'] = 'ln'
 
-    # params['data_method'] = 'ga'
-    # we need to change the constraint for different terrain type
-    # params['data_method'] = 'sample_upper_constraint'
-    params['data_method'] = 'sample_upper'
+    params['data_method'] = 'ga'
+    # params['data_method'] = 'sample_upper_constraint'    # we need to change the constraint for different terrain type
+    # params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 
-    # params['vary_env'] = 'random'
-    params['vary_env'] = 'static'
+    params['vary_env'] = 'random'
+    # params['vary_env'] = 'static'
     # params['vary_env'] = 'discrete'
 
-    params['sim_env'] = True  # Whether we want to use simulated environment
-    params['use_regress_net'] = True
+    params['sim_env'] = False  # Whether we want to use simulated environment, otherwise use toy env
+    params['use_regress_net'] = False    # we always use regress net when in sim env, but we can also use regress with toy
 
     params['folder'] = './logs'
 
