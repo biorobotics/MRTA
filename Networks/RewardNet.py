@@ -12,7 +12,7 @@ import torch.nn as nn
 # block_env_size = params['n_env_types']
 
 class RewardNet(nn.Module):
-    def __init__(self, input_length, env_length, n_hidden_layers=2, hidden_layer_size=128):
+    def __init__(self, input_length, env_length, norm, n_hidden_layers=2, hidden_layer_size=128):
         super(RewardNet, self).__init__()
 
         # preprocessing - can be changed
@@ -29,27 +29,32 @@ class RewardNet(nn.Module):
         self.output_layer = nn.Linear(hidden_layer_size, 1)
         self.activation = torch.nn.ReLU()
 
-        self.bn_list = torch.nn.ModuleList()
-        for i in range(n_hidden_layers + 1):
-            self.bn_list.append(nn.BatchNorm1d(hidden_layer_size))
-
         self.drops = nn.Dropout(0.3)
-        self.bn_conv_in = nn.BatchNorm1d(env_length)
+        self.norm = norm
+        if norm == 'bn':
+            # batch normalization
+            self.bn_conv_in = nn.BatchNorm1d(env_length)
+            self.bn_list = torch.nn.ModuleList()
+            for i in range(n_hidden_layers + 1):
+                self.bn_list.append(nn.BatchNorm1d(hidden_layer_size))
 
     def forward(self, robot, env_vector):
         # print(design_latent.shape)
         # print(terrain_conv_output.shape)
         x1 = self.activation(self.input_layer(robot))
-        x2 = self.activation(self.embedding_layer(self.bn_conv_in(env_vector)))
+        if self.norm == 'bn':
+            env_vector = self.bn_conv_in(env_vector)
+        x2 = self.activation(self.embedding_layer(env_vector))
 
         x = torch.cat((x1, x2), dim=-1)
 
         for i in range(self.n_hidden_layers):
             x = self.activation(self.hidden_list[i](x))
-
-            # added dropout and bn: see if it works
+            # # we don't apply dropout before the last layer
+            # if i < self.n_hidden_layers - 1:
             x = self.drops(x)
-            x = self.bn_list[i](x)
+            if self.norm == 'bn':
+                x = self.bn_list[i](x)
 
         x = self.output_layer(x)
         return x

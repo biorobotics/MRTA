@@ -125,30 +125,31 @@ def env_to_n_onehot(env_type, n_samples):
     return env_onehot
 
 
-def numpy_to_input_batch(array, batch_dim):
-    vect = torch.from_numpy(array).reshape(batch_dim, -1).float().cuda()
+def numpy_to_input_batch(array, batch_dim, device='cuda'):
+    vect = torch.from_numpy(array).reshape(batch_dim, -1).float().to(device)
     return vect
 
 
 def convert_erg_to_reward(ergs):
-    # print(ergs)
-    ergs = torch.clip(ergs, 0, 16)
-    rewards = 16 - ergs
+    # ergs = torch.clip(ergs, 0, 16)
+    # rewards = 16 - ergs
+    rewards = -ergs.exp().sum(axis=-1)
     return rewards
 
 
-def calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples):
+def calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples, device='cuda'):
     # print("start")
     # print(int_allocs[:4])
     allocs_reshape = int_allocs.swapaxes(-1, -2)
-    allocs_torch = numpy_to_input_batch(allocs_reshape, env.n_num_grids * n_samples)
+    allocs_torch = numpy_to_input_batch(allocs_reshape, env.n_num_grids * n_samples, device)
     envs_torch = envs_torch.reshape(-1, env.n_types_terrain)
 
-    ergs = net(allocs_torch, envs_torch)
+    with torch.no_grad():
+        ergs = net(allocs_torch, envs_torch)
     # print(allocs_torch[:4])
     # print(envs_torch[:4])
     # print(ergs[:4])
-    ergs = ergs.reshape(-1, env.n_num_grids).sum(axis=-1)
+    ergs = ergs.reshape(-1, env.n_num_grids)
     # print(ergs[:1])
     return convert_erg_to_reward(ergs)
 
@@ -158,23 +159,41 @@ def calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples):
 def generate_true_regress_data(env, n_samples, env_type, net, data_method='sample', fake_data=None):
     # we only need the dist, replace this later
     # TODO: this should be continuous, convert to int later
-    if data_method is not 'sample_upper':
-        exit("rest of the sampling method needs to be double checked, utils.py")
-    int_allocs, allocs = env.generate_random_alloc(n_samples)
-    envs = env_to_n_onehot(env_type, n_samples)
-    envs_torch = numpy_to_input_batch(envs, env.n_num_grids * n_samples)
-    rewards = calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples)
-    # print("inital int")
-    # print(int_allocs[:5])
+    if data_method == 'sample_upper':
+        int_allocs, allocs = env.generate_random_alloc(n_samples)
+        envs = env_to_n_onehot(env_type, n_samples)
+        envs_torch = numpy_to_input_batch(envs, env.n_num_grids * n_samples)
+        rewards = calc_reward_from_rnet(env, net, int_allocs, envs_torch, n_samples)
 
-    avg_random_rewards = rewards.mean()
-    alloc_data, avg_reward = resample_data(allocs, rewards, data_method)
-    # print("resampled cont")
-    # print(alloc_data[:5])
-    # int_alloc = np.array(
-    # [env.get_integer(alloc) for alloc in np.array(alloc_data).reshape(128, env.n_types_agents, -1)[:5]])
-    # print("resampled int")
-    # print(int_alloc)
+        avg_random_rewards = rewards.mean()
+        alloc_data, avg_reward = resample_data(allocs, rewards, data_method)
+
+    elif data_method == 'ga':
+        if fake_data is None:
+            exit("utils.py line 173 fatal error")
+        else:
+            # generate the next generation of population
+            # take the current population, and evolve it
+            allocs = np.array(fake_data.detach().cpu())
+            int_allocs = np.array([env.get_integer(alloc) for alloc in softmax(allocs, axis=-1)])
+            batch_size = params['batch_size']
+            envs = env_to_n_onehot(env_type, batch_size)
+            envs_torch = numpy_to_input_batch(envs, env.n_num_grids * batch_size)
+            fitness = calc_reward_from_rnet(env, net, int_allocs, envs_torch, batch_size).cpu().numpy()
+            new_data = evolve_one_gen(allocs.reshape(128, 12), fitness)
+            new_data = softmax(new_data.reshape(128, 3, 4), axis=-1)
+
+            new_int_data = np.array([env.get_integer(alloc) for alloc in new_data])
+            new_fit = calc_reward_from_rnet(env, net, new_int_data, envs_torch, batch_size)
+            new_fit_avg = new_fit.mean()
+            # print(int_allocs[:5])
+            # print(fitness[:5])
+            # print(new_data[:5])
+            # print(new_fit[:5])
+            # exit()
+            return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
+    else:
+        exit("rest of the sampling method needs to be double checked, utils.py, line 186")
     return alloc_data, avg_reward, avg_random_rewards
 
 def resample_data(allocs, rewards, data_method):
@@ -220,7 +239,7 @@ def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data
             new_fit_avg = np.mean([env.get_reward(alloc, env_type) for alloc in new_data])
             return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
     else:
-        exit("utils.py error line 55")
+        exit("utils.py error line 224")
     avg_random_rewards = rewards.mean()
     alloc_data, avg_reward = normalize_agent_assignments(allocs, rewards)
     return alloc_data, avg_reward, avg_random_rewards

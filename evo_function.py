@@ -6,27 +6,35 @@ Contains helper function for evolution
 
 import numpy as np
 import math
-# from MAETF.simulator import MultiAgentEnv
-from toy_env import MultiAgentEnv
+from MAETF.simulator import MultiAgentEnv
+# from toy_env import MultiAgentEnv
 from params import get_params
 from scipy.special import softmax
+#from utils import calc_reward_from_rnet, env_to_n_onehot, numpy_to_input_batch
+import utils
+import torch
+from Networks.RewardNet import RewardNet
 
-# the function that we want to maximize
-def fitness_function(x):
-    x = np.asarray(x).reshape([3, 4])
-    # x /= x.sum(axis=1)
-    #instead, apply logistic
-    x = softmax(x, axis=1)
-    terrain = [0, 1, 2, 3]
-    return env.get_reward(x, terrain)
-
-# # the function that we want to maximize
+r_net = True
+worker_device = torch.device("cpu")
+# # Works for toy env
 # def fitness_function(x):
 #     x = np.asarray(x).reshape([3, 4])
 #     # x /= x.sum(axis=1)
 #     #instead, apply logistic
 #     x = softmax(x, axis=1)
-#     return env.get_reward(x.T, env_type)
+#     terrain = [0, 1, 2, 3]
+#     return env.get_reward(x, terrain)
+
+def fitness_function(x):
+    x = np.asarray(x).reshape([3, 4])
+    x = softmax(x, axis=1)
+    int_allocs = np.expand_dims(env.get_integer(x), axis=0)
+    env_type = [0, 1, 2, 3]
+    envs = utils.env_to_n_onehot(env_type, 1)
+    envs_torch = utils.numpy_to_input_batch(envs, env.n_num_grids, worker_device)
+    rewards = utils.calc_reward_from_rnet(env, net, int_allocs, envs_torch, 1, worker_device)
+    return rewards[0]
 
 # def fitness_function(x):
 #     """
@@ -151,8 +159,7 @@ def evolve_one_gen(population, fitness):
     selection_rate = 0.5
     mutation_rate = 0.1
 
-    n_genes = 12  # number of variables
-    pop_size = 128  # population size
+    pop_size, n_genes = population.shape
     input_limits = np.array([-5, 5])
     pop_keep = math.floor(selection_rate * pop_size)  # number of individuals to keep on each iteration
 
@@ -260,9 +267,8 @@ if __name__ == "__main__":
     selection_strategy = "roulette_wheel"
     selection_rate = 0.5
     mutation_rate = 0.1
-
     n_genes = 12  # number of variables
-    pop_size = 128  # population size
+    pop_size = 10 #128  # population size
     input_limits = np.array([-5, 5])
     pop_keep = math.floor(selection_rate * pop_size)  # number of individuals to keep on each iteration
 
@@ -276,7 +282,28 @@ if __name__ == "__main__":
     params = get_params()
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
-                        n_env_types=params['n_env_types'])
+                        n_env_types=params['n_env_types'],
+                        agent_num=params['agent_num'])
+
+
+    if r_net:
+        # initialize the reward net
+        net = RewardNet(params['n_agent_types'],
+                        env_length=params['n_env_types'],
+                        norm=params['reward_norm'],
+                        n_hidden_layers=5,
+                        hidden_layer_size=256)
+
+        # # environment for getting hand-crafted rewards
+        # env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
+        #                     n_num_agents=params['n_agent_types'],
+        #                     n_env_types=params['n_env_types'])
+
+        out_dir = "./logs/reward_logs/reward_weight"
+        # params['regress_net_loc']
+        # out_dir += '%s_nsamp:%d' % (params['data_method'], params['n_samples'])
+        net.load_state_dict(torch.load(out_dir, map_location=worker_device))
+        net.eval()
 
     # env_type = [0, 1, 2, 3]
     # terrain = np.zeros((50, 50), dtype=np.int32)

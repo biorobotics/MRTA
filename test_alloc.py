@@ -42,7 +42,8 @@ def test():
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
-                        n_env_types=params['n_env_types'])
+                        n_env_types=params['n_env_types'],
+                        agent_num=params['agent_num'])
 
     worker_device = torch.device("cuda:0")
 
@@ -60,6 +61,7 @@ def test():
 
     reward_net = RewardNet(params['n_agent_types'],
                            env_length=params['n_env_types'],
+                           norm=params['reward_norm'],
                            n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
     reward_net.load_state_dict(torch.load(params['regress_net_loc']))
     reward_net.eval()

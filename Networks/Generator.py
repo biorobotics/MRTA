@@ -40,8 +40,6 @@ class AllocationGenerator(nn.Module):
         else:
             exit("Generator.py: wrong normalization argument")
 
-
-
     def forward(self, design_latent, env_vector):
         use_bn = self.use_bn
 

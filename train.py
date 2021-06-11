@@ -17,7 +17,7 @@ from Networks.RewardNet import RewardNet
 
 
 def train(
-    training_steps: int = 500000,
+    training_steps: int = 1500000,
     learning_rate: float = 0.001,
     print_output_every_n_steps: int = 5000,
     n_critic: int = 5,
@@ -35,7 +35,8 @@ def train(
     # environment for getting hand-crafted rewards
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
-                        n_env_types=params['n_env_types'])
+                        n_env_types=params['n_env_types'],
+                        agent_num=params['agent_num'])
 
     worker_device = torch.device("cuda:0")
 
@@ -59,11 +60,11 @@ def train(
         discriminator.load_state_dict(torch.load("./gan_logs/"+params['load_from_file']+"/discriminator_weight"))
     else:
         out_dir = os.path.join(params['gan_loc'], "")
-        out_dir += '%s_nsamp:%d_%s' % (params['data_method'], params['n_samples'], env_name)
-        out_dir += '_%s_%s_%s_rnet:%i' % (params['vary_env'],
-                                          params['gen_norm'],
-                                          params['dis_norm'],
-                                          params['use_regress_net'])
+
+        out_dir += '%s_rnet:%i' % (params['vary_env'], params['use_regress_net'])
+        out_dir += '_%s_latent:%d_%s' % (params['data_method'], params['design_input_len'], env_name)
+        # out_dir += '_%s_%s' % (params['gen_norm'], params['dis_norm'])
+        # out_dir += '_nsamp:%d' % (params['n_samples'])
         # out_dir += '_%s_gpl:%g' % (params['dis_norm'], params['gp_lambda'])
         # out_dir += '_atypes:%d_enum:%d_etypes:%d' % (
         #     params['n_agent_types'], params['env_grid_num'], params['n_env_types'])
@@ -75,7 +76,9 @@ def train(
     if params['use_regress_net']:
         reward_net = RewardNet(params['n_agent_types'],
                                env_length=params['n_env_types'],
-                               n_hidden_layers=5, hidden_layer_size=256).to(worker_device)
+                               norm=params['reward_norm'],
+                               n_hidden_layers=5,
+                               hidden_layer_size=256).to(worker_device)
         reward_net.load_state_dict(torch.load(params['regress_net_loc']))
         reward_net.eval()
 
@@ -174,6 +177,7 @@ def train(
 
 
         if i % print_output_every_n_steps == 0:
+            print(f"episode: {i}")
             print(f"env type is: {env_type}")
             int_alloc = np.array([env.get_integer(alloc) for alloc in generated_data_raw.detach().cpu().numpy()])
             for alloc in int_alloc[:5]:
