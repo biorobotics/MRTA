@@ -17,6 +17,7 @@ from Networks.RewardNet import RewardNet
 
 r_net = True
 worker_device = torch.device("cpu")
+params = get_params()
 # # Works for toy env
 # def fitness_function(x):
 #     x = np.asarray(x).reshape([3, 4])
@@ -27,10 +28,11 @@ worker_device = torch.device("cpu")
 #     return env.get_reward(x, terrain)
 
 def fitness_function(x):
-    x = np.asarray(x).reshape([3, 4])
+    x = np.asarray(x).reshape([params['n_agent_types'], params['env_grid_num']])
     x = softmax(x, axis=1)
     int_allocs = np.expand_dims(env.get_integer(x), axis=0)
     env_type = [0, 1, 2, 3]
+    # env_type = [0, 1, 2, 3, 0, 1, 2, 3, 2]
     envs = utils.env_to_n_onehot(env_type, 1)
     envs_torch = utils.numpy_to_input_batch(envs, env.n_num_grids, worker_device)
     rewards = utils.calc_reward_from_rnet(env, net, int_allocs, envs_torch, 1, worker_device)
@@ -88,14 +90,13 @@ def initialize_population(pop_size, n_genes, input_limits):
 
     return population
 
-def create_offspring(first_parent, sec_parent, crossover_pt, offspring_number):
+def create_offspring(first_parent, sec_parent, crossover_pt):
     """
     Creates an offspring from 2 parents. It performs the crossover
     according the following rule:
     p_new = first_parent[crossover_pt] + beta * (first_parent[crossover_pt] - sec_parent[crossover_pt])
     offspring = [first_parent[:crossover_pt], p_new, sec_parent[crossover_pt + 1:]
-    where beta is a random number between 0 and 1, and can be either positive or negative
-    depending on if it's the first or second offspring
+    where beta is a random number between 0 and 1
     :param first_parent: first parent's chromosome
     :param sec_parent: second parent's chromosome
     :param crossover_pt: point(s) at which to perform the crossover
@@ -108,13 +109,19 @@ def create_offspring(first_parent, sec_parent, crossover_pt, offspring_number):
         np.random.rand(1)[0]
     )
 
-    #I think this is buggy
-    p_new = first_parent[crossover_pt] - beta * (
+    p_new1 = first_parent[crossover_pt] - beta * (
             first_parent[crossover_pt] - sec_parent[crossover_pt]
     )
-    return np.hstack(
-        (first_parent[:crossover_pt], p_new, sec_parent[crossover_pt + 1:])
+    p_new2 = sec_parent[crossover_pt] - beta * (
+            sec_parent[crossover_pt] - first_parent[crossover_pt]
     )
+    return np.hstack(
+        (first_parent[:crossover_pt], p_new1, sec_parent[crossover_pt + 1:])
+    ), np.hstack(
+        (sec_parent[:crossover_pt], p_new2, first_parent[crossover_pt + 1:])
+    )
+
+
 
 
 def mutate_population(population, n_mutations, input_limits):
@@ -145,10 +152,12 @@ def mutate_population(population, n_mutations, input_limits):
 
     return population
 
+
 def to_pop_format(x):
-    x = np.asarray(x).reshape([3, 4])
+    x = np.asarray(x).reshape([params['n_agent_types'], params['env_grid_num']])
     x = softmax(x, axis=1)
     return x
+
 
 def evolve_one_gen(population, fitness):
     # Sort population by fitness
@@ -180,20 +189,64 @@ def evolve_one_gen(population, fitness):
 
     for i in range(xp.shape[0]):
         # create first offspring
-        population[-1 - ix[i], :] = create_offspring(
-            population[ma[i], :], population[pa[i], :], xp[i][0], "first"
+        child1, child2 = create_offspring(
+            population[ma[i], :], population[pa[i], :], xp[i][0]
         )
-
+        population[-1 - ix[i], :] = child1
         # create second offspring
-        population[-1 - ix[i] - 1, :] = create_offspring(
-            population[pa[i], :], population[ma[i], :], xp[i][0], "second"
-        )
+        population[-1 - ix[i] - 1, :] = child2
 
     population = mutate_population(population, n_mutations, input_limits)
     return population
 
 
+# idea is that we can move mutation as the first step
+def evolve_one_gen_mod(population, fitness):
+    # # shadow all other parameters
+    # selection_strategy = "roulette_wheel"
+    # selection_rate = 0.5
+    # mutation_rate = 0.1
+    #
+    # pop_size, n_genes = population.shape
+    # input_limits = np.array([-5, 5])
+    # pop_keep = math.floor(selection_rate * pop_size)  # number of individuals to keep on each iteration
+    #
+    # n_matings = math.floor((pop_size - pop_keep) / 2)  # number of crossovers to perform
+    # n_mutations = math.ceil((pop_size - 1) * n_genes * mutation_rate)  # number o mutations to perform
 
+    population = mutate_population(population, n_mutations, input_limits)
+
+
+    # we need to calculate fitness before this
+    # maybe change this so it's not in the same function anymore
+
+    # Sort population by fitness
+    fitness, population = sort_by_fitness(fitness, population)
+    fitness = np.hstack((fitness[0], calculate_fitness(population[1:, :])))
+
+    # probability intervals, needed for roulete_wheel and random selection strategies
+    prob_intervals = get_selection_probabilities(selection_strategy, pop_keep)
+
+    # Get parents pairs
+    ma, pa = select_parents(selection_strategy, n_matings, fitness, prob_intervals)
+
+    # Get indices of individuals to be replaced
+    ix = np.arange(0, pop_size - pop_keep - 1, 2)
+
+    # Get crossover point for each individual
+    xp = np.random.randint(0, n_genes, size=(n_matings, 1))
+
+    for i in range(xp.shape[0]):
+        # create first offspring
+        child1, child2 = create_offspring(
+            population[ma[i], :], population[pa[i], :], xp[i][0]
+        )
+        population[-1 - ix[i], :] = child1
+        # create second offspring
+        population[-1 - ix[i] - 1, :] = child2
+
+
+    return population
 
 def calculate_fitness(population):
     """
@@ -253,22 +306,70 @@ def solve():
         population = evolve_one_gen(population, fitness)
         # Get new population's fitness. Since the fittest element does not change,
         # we do not need to re calculate its fitness
-        fitness = np.hstack((fitness[0], calculate_fitness(population[1:, :])))
-        print(fitness.mean())
-
-        #
+        fitness = calculate_fitness(population)
+        print(fitness.max())
         if gen_n >= max_gen:
             break
     fitness, population = sort_by_fitness(fitness, population)
-    return population[0], fitness[0]
+    return population, fitness
 
-# this takes forever to run
+
+######################################## niching methods  #######################################
+# based on https://github.com/mikeagn/CEC2013/blob/master/python3/cec2013/cec2013.py
+def how_many_goptima(pop, fits, radius, fitness_goptima, accuracy):
+    # Descenting sorting
+    order = np.argsort(fits)[::-1]
+
+    # Sort population based on its fitness values
+    sorted_pop = pop[order, :]
+    spopfits = fits[order]
+
+    # find seeds in the temp population (indices!)
+    seeds_idx = find_seeds_indices(sorted_pop, radius)
+
+    count = 0
+    goidx = []
+    for idx in seeds_idx:
+        # evaluate seed
+        seed_fitness = spopfits[idx]  # f.evaluate(sorted_pop[idx])
+
+        # |F_seed - F_goptimum| <= accuracy
+        if fitness_goptima - seed_fitness <= accuracy:
+            count = count + 1
+            goidx.append(idx)
+
+    # gather seeds
+    seeds = sorted_pop[goidx]
+
+    return count, seeds
+
+def find_seeds_indices(sorted_pop, radius):
+    seeds = []
+    seeds_idx = []
+    # Determine the species seeds: iterate through sorted population
+    for i, x in enumerate(sorted_pop):
+        found = False
+        # Iterate seeds
+        for j, sx in enumerate(seeds):
+            # Calculate distance from seeds
+            dist = math.sqrt(sum((x - sx) ** 2))
+
+            # If the Euclidean distance is less than the radius
+            if dist <= radius:
+                found = True
+                break
+        if not found:
+            seeds.append(x)
+            seeds_idx.append(i)
+
+    return seeds_idx
+######################################## end of niching methods  #######################################
 if __name__ == "__main__":
     selection_strategy = "roulette_wheel"
     selection_rate = 0.5
     mutation_rate = 0.1
-    n_genes = 12  # number of variables
-    pop_size = 10 #128  # population size
+    n_genes = params['n_agent_types'] * params['env_grid_num'] #12  # number of variables
+    pop_size = 128  #128  # population size
     input_limits = np.array([-5, 5])
     pop_keep = math.floor(selection_rate * pop_size)  # number of individuals to keep on each iteration
 
@@ -278,8 +379,7 @@ if __name__ == "__main__":
     # probability intervals, needed for roulete_wheel and random selection strategies
     prob_intervals = get_selection_probabilities(selection_strategy, pop_keep)
 
-    max_gen = 50  # Maximum number of generations
-    params = get_params()
+    max_gen = 300  # Maximum number of generations
     env = MultiAgentEnv(n_num_grids=params['env_grid_num'],
                         n_num_agents=params['n_agent_types'],
                         n_env_types=params['n_env_types'],
@@ -310,8 +410,13 @@ if __name__ == "__main__":
     # terrain[0:25, 0:25] = 1
     # terrain[0:25, 25:] = 2
     # terrain[25:, 25:] = 3
-    pop, fit = solve()
-    pop = to_pop_format(pop)
-    print(pop)
+    pop_list, fit_list = solve()
+    pop = to_pop_format(pop_list[0])
     print(env.get_integer(pop))
-    print(fit)
+    print(fit_list[0])
+
+    int_pop_list = np.array([env.get_integer(to_pop_format(alloc)) for alloc in pop_list])
+    radius, fitness_goptima, accuracy = 5, fit_list[0], 0.00005#0.2
+    count, seed = how_many_goptima(int_pop_list.reshape(pop_size, n_genes), fit_list, radius, fitness_goptima, accuracy)
+    print(count)
+    # print(seed.reshape(count, 3, 4))

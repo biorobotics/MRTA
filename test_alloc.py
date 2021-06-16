@@ -75,9 +75,13 @@ def test():
     env_onehot = env_onehot.reshape(1, -1).repeat(sample_size, 1)
     noise = torch.normal(0, 1, size=(sample_size, params['design_input_len']), device=worker_device)
 
+    import time
+    start_time = time.time()
     generated_data_logits = generator(noise, env_onehot)
     generated_data_raw = F.softmax(generated_data_logits, dim=-1)
     generated_data_raw = generated_data_raw.detach().cpu().numpy().astype(float)
+    print("--- %s seconds ---" % (time.time() - start_time))
+    exit()
     print(f"env type is: {env_type}")
 
 

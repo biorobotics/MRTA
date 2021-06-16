@@ -93,6 +93,7 @@ def train(
         # TODO: env type should be the actual env type: env_type pass into onehot
         if params['vary_env'] == 'static':
             env_type = [0, 1, 2, 3]
+            # env_type = [0, 1, 1, 0, 2, 1, 3, 2, 3]
         elif params['vary_env'] == 'discrete':
             env_type_list = [[0, 1, 2, 3], [1, 2, 3, 0], [2, 3, 0, 3]]
             env_dex = np.random.randint(len(env_type_list))

@@ -133,7 +133,10 @@ def numpy_to_input_batch(array, batch_dim, device='cuda'):
 def convert_erg_to_reward(ergs):
     # ergs = torch.clip(ergs, 0, 16)
     # rewards = 16 - ergs
-    rewards = -ergs.exp().sum(axis=-1)
+    if params['reward_scale'] == 'log':
+        rewards = -ergs.sum(axis=-1)
+    elif params['reward_scale'] == 'linear':
+        rewards = -ergs.exp().sum(axis=-1)
     return rewards
 
 
@@ -180,18 +183,13 @@ def generate_true_regress_data(env, n_samples, env_type, net, data_method='sampl
             envs = env_to_n_onehot(env_type, batch_size)
             envs_torch = numpy_to_input_batch(envs, env.n_num_grids * batch_size)
             fitness = calc_reward_from_rnet(env, net, int_allocs, envs_torch, batch_size).cpu().numpy()
-            new_data = evolve_one_gen(allocs.reshape(128, 12), fitness)
-            new_data = softmax(new_data.reshape(128, 3, 4), axis=-1)
+            new_data = evolve_one_gen(allocs.reshape(batch_size, params['alloc_len']), fitness)
+            new_data = softmax(new_data.reshape(batch_size, params['n_agent_types'], params['env_grid_num']), axis=-1)
 
             new_int_data = np.array([env.get_integer(alloc) for alloc in new_data])
             new_fit = calc_reward_from_rnet(env, net, new_int_data, envs_torch, batch_size)
             new_fit_avg = new_fit.mean()
-            # print(int_allocs[:5])
-            # print(fitness[:5])
-            # print(new_data[:5])
-            # print(new_fit[:5])
-            # exit()
-            return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
+            return new_data.reshape(batch_size, params['alloc_len']), new_fit_avg, fitness.mean()
     else:
         exit("rest of the sampling method needs to be double checked, utils.py, line 186")
     return alloc_data, avg_reward, avg_random_rewards
@@ -232,12 +230,12 @@ def generate_true_data(env, n_samples, env_type, data_method='sample', fake_data
             #take the current population, and evolve it
             allocs = np.array(fake_data.detach().cpu())
             fitness = np.array([env.get_reward(alloc, env_type) for alloc in softmax(allocs, axis=-1)])
-            new_data = evolve_one_gen(allocs.reshape(128, 12), fitness)
-            new_data = softmax(new_data.reshape(128, 3, 4), axis=-1)
+            new_data = evolve_one_gen(allocs.reshape(128, params['alloc_len']), fitness)
+            new_data = softmax(new_data.reshape(128, params['n_agent_types'], params['env_grid_num']), axis=-1)
 
             # TODO: what if we return logits as well, and discriminator also takes in logits?
             new_fit_avg = np.mean([env.get_reward(alloc, env_type) for alloc in new_data])
-            return new_data.reshape(128, 12), new_fit_avg, fitness.mean()
+            return new_data.reshape(128, params['alloc_len']), new_fit_avg, fitness.mean()
     else:
         exit("utils.py error line 224")
     avg_random_rewards = rewards.mean()

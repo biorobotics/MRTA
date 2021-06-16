@@ -9,6 +9,9 @@ init_pos = 15 * floor_scaling
 robot_pos_scaling = floor_scaling * 2 * 30
 interp = 20
 sleep_t = 1.5 / interp
+robot_scale = 0.13 #0.17
+draw_traj = True
+oblique = True
 
 physicsClient = p.connect(p.GUI, options='--background_color_red=1.0 --background_color_green=1.0 --background_color_blue=1.0')
 p.setAdditionalSearchPath("./robot_urdfs")
@@ -45,24 +48,25 @@ def load_terrain():
     plane3Id = create_bumpy_terrain(basePosition=[-init_pos, -init_pos, 0])
     plane2Id = create_bumpy_terrain(basePosition=[init_pos, -init_pos, -0.05], heightPerturbationRange=0.05)
     plane1Id = create_bumpy_terrain(basePosition=[init_pos, init_pos, 0], heightPerturbationRange=0.05)
-    plane4Id = create_bumpy_terrain(basePosition=[-init_pos, init_pos, 0], heightPerturbationRange=0.00)
+    plane4Id = create_bumpy_terrain(basePosition=[-init_pos, init_pos, 0], heightPerturbationRange=0.01)
 
     # this is the original setting
-    city_texture_path = "textures/city3.jpg"
-    sea_texture_path = "textures/ocean.jpeg"
-    mountain_texture_path = "textures/mountain.jpg"
-    plain_texture_path = "textures/plain.jpg"
+    # city_texture_path = "textures/city3.jpg"
+    city_texture_path = "textures/city3.png"
+    sea_texture_path = "textures/ocean.png"
+    mountain_texture_path = "textures/mountain2.jpg"
+    plain_texture_path = "textures/plain7.png" #"textures/plain.jpg"
 
     # this is the test scenario
-    city_texture_path = "textures/ocean.jpeg"
-    sea_texture_path = "textures/desert.jpg"
-    mountain_texture_path = "textures/forest.jpg"
-    plain_texture_path = "textures/city3.jpg"
-
+    # city_texture_path = "textures/ocean.jpeg"
+    # sea_texture_path = "textures/desert.jpg"
+    # mountain_texture_path = "textures/forest.jpg"
+    # plain_texture_path = "textures/city3.jpg"
+    plain_texture_ID = p.loadTexture(plain_texture_path)
     cit_texture_ID = p.loadTexture(city_texture_path)
     sea_texture_ID = p.loadTexture(sea_texture_path)
     mount_texture_ID = p.loadTexture(mountain_texture_path)
-    plain_texture_ID = p.loadTexture(plain_texture_path)
+
 
     p.changeVisualShape(plane1Id, -1, textureUniqueId=cit_texture_ID)
     p.changeVisualShape(plane2Id, -1, textureUniqueId=sea_texture_ID)
@@ -80,7 +84,7 @@ def load_robot(loc_name):
     location = np.load(loc_name)
     id_list = []
     for i in range(location.shape[0]):
-        scale = 0.5
+
         if location[i, 0] == 'lime':
             # car
             urdf = 'jeep.urdf'
@@ -93,10 +97,34 @@ def load_robot(loc_name):
         else:
             print(location[i, 0])
             exit("error with loaded data")
-        id_list.append(p.loadURDF(urdf, globalScaling=scale))
+        agent_ID = p.loadURDF(urdf, globalScaling=robot_scale)
+        if location[i, 0] == 'red':
+            texture_ID = p.loadTexture("./textures/agents_texture/plane2.jpg")
+
+        elif location[i, 0] == 'lime':
+            texture_ID = p.loadTexture("./textures/agents_texture/car3.jpg")
+        else:
+            texture_ID = p.loadTexture("./textures/agents_texture/boat.jpg")
+        p.changeVisualShape(agent_ID, -1, textureUniqueId=texture_ID)
+
+        id_list.append(agent_ID)
 
     return id_list, location
 
+def update_robot_xyz(x, y, z, color):
+    if color == 'lime':
+        pass
+    elif color == 'lightblue':
+        pass
+    elif color == 'red':
+        z = 1
+        # x *= 0.8
+        # y *= 0.8
+    else:
+        exit("error line 73")
+    if not oblique:
+        z = 0.1 #for drawing
+    return x, y, z
 
 def update_robot(time, id_list, location):
 
@@ -105,18 +133,8 @@ def update_robot(time, id_list, location):
             new_pos_x = location[i, 1][time, 0] * robot_pos_scaling - robot_pos_scaling / 2
             new_pos_y = location[i, 1][time, 1] * robot_pos_scaling - robot_pos_scaling / 2
             z_pos = 0
-
             quat = [0, 0, 0, 1]
-            if location[i, 0] == 'lime':
-                pass
-            elif location[i, 0] == 'lightblue':
-                pass
-            elif location[i, 0] == 'red':
-                z_pos = 2
-                new_pos_x*=0.8
-                new_pos_y*=0.8
-            else:
-                exit("error line 73")
+            new_pos_x, new_pos_y, z_pos = update_robot_xyz(new_pos_x, new_pos_y, z_pos, location[i, 0])
             p.resetBasePositionAndOrientation(id_list[i], [new_pos_x, new_pos_y, z_pos], quat)
         p.stepSimulation()
         sleep(sleep_t)
@@ -138,35 +156,37 @@ def update_robot(time, id_list, location):
                 new_pos_y = tar_pos_y * alpha + old_pos_y * (1 - alpha)
                 z_pos = 0
 
-                if location[i, 0] == 'lime':
-                    # how to deal with bumpy terrain?
-                    pass
-                elif location[i, 0] == 'lightblue':
-                    pass
-                elif location[i, 0] == 'red':
-                    z_pos = 2
-                    new_pos_x*=0.8
-                    new_pos_y*=0.8
-                else:
-                    exit("error line 118")
+                new_pos_x, new_pos_y, z_pos = update_robot_xyz(new_pos_x, new_pos_y, z_pos, location[i, 0])
+
+                if j==interp-1:
+                    if draw_traj:
+                        if location[i,0] == 'lightblue':
+                            color = [0.83, 0.85, 0.26]
+                        elif location[i,0] == 'lime':
+                            color = [0.12, 0.84, 0.97]
+                        else:
+                            color = [0.97, 0.13, 0.13]
+                        p.addUserDebugLine([old_pos_x, old_pos_y, z_pos], [tar_pos_x, tar_pos_y, z_pos],
+                                           lineColorRGB=color, lineWidth=3)
+
                 p.resetBasePositionAndOrientation(id_list[i], [new_pos_x, new_pos_y, z_pos], quat)
             p.stepSimulation()
             sleep(sleep_t)
 
 
 if __name__ == '__main__':
-    p.resetSimulation()  # remove all objects from the world and reset the world to initial conditions. (not needed here but kept for example)
-
-
-
+    p.resetSimulation()  # remove all objects from the world and reset the world to initial conditions.
     loc_name = "../MAETF/data_loc/loc.npy"
 
     p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=physicsClient)
-    p.resetDebugVisualizerCamera(5, 180, -45, [0, 3, 0], physicsClientId=physicsClient)  # I like this view
-    # p.resetDebugVisualizerCamera(7, 180, -89.9, [0, 0, 0], physicsClientId=physicsClient)
+    # p.resetDebugVisualizerCamera(10, 135, -55, [0, 0, 0], physicsClientId=physicsClient)  # I like this view
+    if not oblique:
+        p.resetDebugVisualizerCamera(7, 0, -89.9, [0, 0, 0], physicsClientId=physicsClient)
+    else:
+        p.resetDebugVisualizerCamera(10, 0, -45, [0, 0, 0], physicsClientId=physicsClient)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0, physicsClientId=physicsClient)
     # load_single_terrain()
-    # load_terrain()
+    load_terrain()
     # input()
 
     id_list, location = load_robot(loc_name)
@@ -179,4 +199,5 @@ if __name__ == '__main__':
 
     for i in range(20):
         update_robot(i, id_list, location)
-        input()
+
+    input()
