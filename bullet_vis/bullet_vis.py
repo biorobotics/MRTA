@@ -11,7 +11,7 @@ interp = 20
 sleep_t = 1.5 / interp
 robot_scale = 0.13 #0.17
 draw_traj = True
-oblique = True
+oblique = False
 
 physicsClient = p.connect(p.GUI, options='--background_color_red=1.0 --background_color_green=1.0 --background_color_blue=1.0')
 p.setAdditionalSearchPath("./robot_urdfs")
@@ -44,11 +44,16 @@ def load_terrain():
     # plane2Id = p.loadURDF('plane.urdf', basePosition=[init_pos, -init_pos, 0], globalScaling=floor_scaling)
     # plane3Id = p.loadURDF('plane.urdf', basePosition=[-init_pos, -init_pos, 0], globalScaling=floor_scaling)
     # plane4Id = p.loadURDF('plane.urdf', basePosition=[-init_pos, init_pos, 0], globalScaling=floor_scaling)
+    # terrains = [0, 1, 2, 3]
+    terrains = [3, 4, 2, 0]
+    # terrains = [1, 1, 1, 3]
 
-    plane3Id = create_bumpy_terrain(basePosition=[-init_pos, -init_pos, 0])
-    plane2Id = create_bumpy_terrain(basePosition=[init_pos, -init_pos, -0.05], heightPerturbationRange=0.05)
-    plane1Id = create_bumpy_terrain(basePosition=[init_pos, init_pos, 0], heightPerturbationRange=0.05)
-    plane4Id = create_bumpy_terrain(basePosition=[-init_pos, init_pos, 0], heightPerturbationRange=0.01)
+    height = [0.45, 0.01, 0, 0.05, 0]
+    plane3Id = create_bumpy_terrain(basePosition=[-init_pos, -init_pos, 0], heightPerturbationRange=height[terrains[0]])
+    plane2Id = create_bumpy_terrain(basePosition=[init_pos, -init_pos, -0.05], heightPerturbationRange=height[terrains[1]])
+    plane4Id = create_bumpy_terrain(basePosition=[-init_pos, init_pos, 0], heightPerturbationRange=height[terrains[2]])
+    plane1Id = create_bumpy_terrain(basePosition=[init_pos, init_pos, 0], heightPerturbationRange=height[terrains[3]])
+
 
     # this is the original setting
     # city_texture_path = "textures/city3.jpg"
@@ -56,6 +61,7 @@ def load_terrain():
     sea_texture_path = "textures/ocean.png"
     mountain_texture_path = "textures/mountain2.jpg"
     plain_texture_path = "textures/plain7.png" #"textures/plain.jpg"
+    desert_texture_path = "textures/desert.jpg"
 
     # this is the test scenario
     # city_texture_path = "textures/ocean.jpeg"
@@ -66,12 +72,13 @@ def load_terrain():
     cit_texture_ID = p.loadTexture(city_texture_path)
     sea_texture_ID = p.loadTexture(sea_texture_path)
     mount_texture_ID = p.loadTexture(mountain_texture_path)
+    desert_texture_path = p.loadTexture(desert_texture_path)
 
-
-    p.changeVisualShape(plane1Id, -1, textureUniqueId=cit_texture_ID)
-    p.changeVisualShape(plane2Id, -1, textureUniqueId=sea_texture_ID)
-    p.changeVisualShape(plane3Id, -1, textureUniqueId=mount_texture_ID)
-    p.changeVisualShape(plane4Id, -1, textureUniqueId=plain_texture_ID)
+    textures = [mount_texture_ID, sea_texture_ID, plain_texture_ID, cit_texture_ID, desert_texture_path]
+    p.changeVisualShape(plane3Id, -1, textureUniqueId=textures[terrains[0]])
+    p.changeVisualShape(plane2Id, -1, textureUniqueId=textures[terrains[1]])
+    p.changeVisualShape(plane4Id, -1, textureUniqueId=textures[terrains[2]])
+    p.changeVisualShape(plane1Id, -1, textureUniqueId=textures[terrains[3]])
 
 def load_single_terrain():
     plane1Id = create_bumpy_terrain(basePosition=[0, 0, 0], heightPerturbationRange=0.25)
@@ -184,6 +191,7 @@ if __name__ == '__main__':
         p.resetDebugVisualizerCamera(7, 0, -89.9, [0, 0, 0], physicsClientId=physicsClient)
     else:
         p.resetDebugVisualizerCamera(10, 0, -45, [0, 0, 0], physicsClientId=physicsClient)
+    # p.resetDebugVisualizerCamera(10, 135, -55, [0, 0, 0], physicsClientId=physicsClient)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0, physicsClientId=physicsClient)
     # load_single_terrain()
     load_terrain()

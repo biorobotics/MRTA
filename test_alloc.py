@@ -67,8 +67,9 @@ def test():
     reward_net.eval()
 
     sample_size = 1000
-    env_type = [0, 1, 2, 3]
+    # env_type = [0, 1, 2, 3]
     # env_type = [1, 2, 3, 0]
+    env_type = [3, 2, 2, 1]
     # [2, 3, 0, 3]
     env_onehot = torch.tensor(int_to_onehot(env_type, params['n_env_types']),
                               dtype=torch.float, device=worker_device)
@@ -80,8 +81,7 @@ def test():
     generated_data_logits = generator(noise, env_onehot)
     generated_data_raw = F.softmax(generated_data_logits, dim=-1)
     generated_data_raw = generated_data_raw.detach().cpu().numpy().astype(float)
-    print("--- %s seconds ---" % (time.time() - start_time))
-    exit()
+    # print("--- %s seconds ---" % (time.time() - start_time))
     print(f"env type is: {env_type}")
 
 
@@ -98,6 +98,9 @@ def test():
     # for i in range(5):
     #     print(int_alloc[i])
     #     print(rewards[i])
+    from evo_function import how_many_goptima
+    radius, fitness_goptima, accuracy = 10, sorted[0], 0.0000005
+    print(how_many_goptima(int_alloc.reshape(sample_size, 12),rewards.cpu().numpy(), radius, fitness_goptima, accuracy )[0])
 
 
     # generated_rewards = np.array([env.get_reward(alloc, env_type) for alloc in generated_data_raw])

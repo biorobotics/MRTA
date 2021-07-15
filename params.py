@@ -56,5 +56,5 @@ def get_params():
 
     # params['reward_scale'] = 'log'
     params['reward_scale'] = 'linear'
-
+    params['crowding'] = False  # for now this only controls the evo_function test
     return params
