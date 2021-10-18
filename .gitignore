@@ -5,7 +5,7 @@ bullet_vis/robot_urdfs/
 bullet_vis/textures/
 bullet_vis/videos/
 logs/
-old_data/
+old_scripts/
 __pycache__
 .idea/
 MAETF/

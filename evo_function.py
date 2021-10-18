@@ -430,7 +430,7 @@ if __name__ == "__main__":
     print(fit_list[0])
 
     int_pop_list = np.array([env.get_integer(to_pop_format(alloc)) for alloc in pop_list])
-    radius, fitness_goptima, accuracy = 10, fit_list[0], 0.0000005#0.2
+    radius, fitness_goptima, accuracy = 10, fit_list[0], 0.0000005 #0.2
     count, seed = how_many_goptima(int_pop_list.reshape(pop_size, n_genes), fit_list, radius, fitness_goptima, accuracy)
     print(count)
     print(seed.reshape(count, 3, 4)[:5])

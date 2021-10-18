@@ -156,11 +156,23 @@ class MultiAgentEnv:
         # print(dists, reward)
         return dists, reward
 
+    #Todo: define a function that measures secondary objective
+    def get_deployment_cost(self, alloc, env_type=None):
+        int_alloc = self.get_integer(alloc)
+        area_weight = np.array([0.5, 1.0, 1.0, 1.5])  # TODO: weight should be based on env_type
+        agent_weight = np.array([0.01, 0.02, 0.03])
+        cost = int_alloc.T @ agent_weight @ area_weight
+        return cost
+
 if __name__ == '__main__':
     env = MultiAgentEnv()
     # print(env.test_dist(env_type=[0, 1, 2, 3]))
 
     robot, reward = env.generate_random_dist_and_reward(50, env_type=[0, 1, 2, 3])
+    print(robot[0])
+    env.get_deployment_cost(robot[0])
+    env.get_deployment_cost(np.array([[1,0,0,0]]*3))
+    exit()
     max_reward = np.max(reward)
     min_reward = np.min(reward)
     max_robot = robot[np.argmax(reward)]
