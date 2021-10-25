@@ -1,5 +1,8 @@
-# Partially based on https://github.com/haris989/NSGA-II
-# Author: Jiaheng Hu
+'''
+Author: Jiaheng Hu
+Partially based on https://github.com/haris989/NSGA-II
+'''
+
 
 import math
 import random

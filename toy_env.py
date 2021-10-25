@@ -2,7 +2,6 @@
 Author: Jiaheng Hu
 
 This env defines a toy MRTA problem.
-
 # current rule: info means potential (a 1d value)
 # terrain has 4 different types:
 #   0, city: car + aircraft, each single 1: 0.1, combo: 1.0
@@ -13,11 +12,9 @@ This env defines a toy MRTA problem.
 # drone: 0
 # car: 1
 # boat: 2
-
 '''
 
 import numpy as np
-
 
 class MultiAgentEnv:
     def __init__(self, n_num_grids=4, n_num_agents=3, n_env_types=4, agent_num=[100, 100, 100]):
@@ -57,6 +54,7 @@ class MultiAgentEnv:
             reward += cur_reward
         return reward
 
+    # # Version 1 of hand-crafted reward
     # def get_grid_reward(self, agents_num, info, env_type):
     #     plane_num = agents_num[0]
     #     car_num = agents_num[1]

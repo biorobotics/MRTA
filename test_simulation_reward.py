@@ -1,6 +1,9 @@
-# Author: Jiaheng Hu
-# Sample a batch of env and alloc, test the reward net prediction
-# For now, we are sampling data from the dataset
+'''
+Author: Jiaheng Hu
+Sample a batch of env and alloc, test the reward net prediction
+For now, we are sampling data from the dataset
+'''
+
 
 import numpy as np
 from Networks.RewardNet import RewardNet
@@ -12,7 +15,7 @@ import os
 from train_simulation_reward import train_test_split, preprocess_data, load_data
 
 params = get_params()
-worker_device = torch.device("cpu")# torch.device("cuda:0")
+worker_device = torch.device("cpu") # torch.device("cuda:0")
 from_dataset = False
 
 

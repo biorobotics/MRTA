@@ -4,8 +4,11 @@ bullet_vis/random_urdfs/
 bullet_vis/robot_urdfs/
 bullet_vis/textures/
 bullet_vis/videos/
-logs/
+bullet_vis/download/
+# ./logs/*
 old_scripts/
 __pycache__
 .idea/
-MAETF/
+# MAETF/
+!logs/gan_logs/reward_weight
+!logs/training_data/*.npy

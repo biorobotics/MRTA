@@ -16,25 +16,6 @@ from collections import defaultdict
 import torch.nn.functional as F
 from Networks.RewardNet import RewardNet
 
-# n_type_agents = 3
-# n_num_grids = 4
-# agent_num = [3, 8, 5]
-# # turn continuous alloc into discrete assignment
-# def get_integer(alloc):
-#     alloc = alloc.T
-#     int_alloc = np.zeros_like(alloc)
-#     for i in range(n_type_agents):
-#         remaining = agent_num[i]
-#         for j in range(n_num_grids):
-#             if j == n_num_grids - 1:
-#                 int_alloc[j][i] = remaining
-#             else:
-#                 cur_num = round(alloc[j][i]*agent_num[i])
-#                 cur_num = np.min([remaining, cur_num])
-#                 remaining -= cur_num
-#                 int_alloc[j][i] = cur_num
-#     return int_alloc.T
-
 def test():
     params = get_params()
 
@@ -85,7 +66,6 @@ def test():
     print(f"env type is: {env_type}")
 
 
-    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw[:5]]
     int_alloc = np.array([env.get_integer(alloc) for alloc in generated_data_raw])
     rewards = calc_reward_from_rnet(env, reward_net, int_alloc, env_onehot, sample_size)
 
@@ -93,35 +73,10 @@ def test():
     for i in range(5):
         print(sorted[i])
         print(int_alloc[indices[i]])
-    # print(rewards.max())
-    # print(int_alloc[rewards.argmax()])
-    # for i in range(5):
-    #     print(int_alloc[i])
-    #     print(rewards[i])
     from evo_function import how_many_goptima
     radius, fitness_goptima, accuracy = 10, sorted[0], 0.0000005
     print(how_many_goptima(int_alloc.reshape(sample_size, 12),rewards.cpu().numpy(), radius, fitness_goptima, accuracy )[0])
 
-
-    # generated_rewards = np.array([env.get_reward(alloc, env_type) for alloc in generated_data_raw])
-    # np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
-    # print(f"fake data average reward: {np.mean(generated_rewards)}")
-    # print(f"fake data max reward: {np.max(generated_rewards)}")
-    # print(f"fake data min reward: {np.min(generated_rewards)}")
-    # print(generated_rewards)
-    # # print(generated_data_raw[np.where(generated_rewards == np.max(generated_rewards))])
-    # int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw]
-    # # for alloc in int_alloc:
-    # #     print(alloc)
-    # int_alloc = np.array(int_alloc)
-    # # print(int_alloc[0])
-    # # print(int_alloc)
-    # # hmm this is not right
-    # print(np.abs(int_alloc - int_alloc[0]).max(axis=0))
-    # print(np.argmax(np.abs(int_alloc - int_alloc[0]), axis=0))
-    # # print(np.abs(int_alloc - int_alloc[0]).sum(axis=(1, 2)).mean())
-    # # TODO: debug this later
-    # # get_count_dict(generated_data_raw, env, env_type)
 
 def get_count_dict(generated_data_raw, env, env_type):
     int_alloc = [env.get_integer(alloc) for alloc in generated_data_raw]
@@ -135,12 +90,6 @@ def get_count_dict(generated_data_raw, env, env_type):
     for i in range(10):
         max_assign = np.fromstring(sorted_key[-i], dtype=float)
         print(max_assign.reshape((3,4)))
-
-    # TODO: figure out why we are having weird behaviors: max_assign greater than max generated reward...
-    # print(dict[sorted_key[-1]])
-    # print("reward")
-    # print(env.getReward(max_assign.reshape((3,4)).T, env_type))
-    # print(int_alloc.index(max_assign.reshape((3,4))))
 
 if __name__ == '__main__':
     test()

@@ -38,8 +38,8 @@ def get_params():
     # params['data_method'] = 'sample_upper'
     params['n_samples'] = 50
 
-    # params['vary_env'] = 'random'
-    params['vary_env'] = 'static'
+    params['vary_env'] = 'random'
+    # params['vary_env'] = 'static'
     # params['vary_env'] = 'discrete'
     params['agent_num'] = [20, 20, 20]  # [8, 5, 3]
 
@@ -51,7 +51,7 @@ def get_params():
     params['gan_loc'] = os.path.join(params['folder'], 'gan_logs')
     params['regress_net_loc'] = os.path.join(params['gan_loc'], 'reward_weight')
     params['data_loc'] = os.path.join(params['folder'], 'training_data')
-    params['reward_loc'] = os.path.join(params['folder'], 'reward_logs', 'reward_agg_dataset')  #root folder for rnet
+    params['reward_loc'] = os.path.join(params['folder'], 'reward_logs', 'reward_agg_dataset')  # root folder for rnet
     params['test_loc'] = os.path.join(params['folder'], 'test_weights')
 
     # params['reward_scale'] = 'log'
