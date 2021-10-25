@@ -165,14 +165,20 @@ class MultiAgentEnv:
         return cost
 
 if __name__ == '__main__':
-    env = MultiAgentEnv()
+    env = MultiAgentEnv(agent_num=[20,20,20])
     # print(env.test_dist(env_type=[0, 1, 2, 3]))
+    agent_logit = [4.971261863372492, 3.073852163778427, -1.1801934414597515, 2.6220230457533837, 3.9281142704496936, -3.015202050625879, -3.3451981695725754, -2.419634956335517, 4.645761518913073, -2.660812139561757, -2.6514387838259013, -1.0527928621110973]
 
+    x = np.asarray(agent_logit).reshape([3, 4])
+    from scipy.special import softmax
+    x = softmax(x, axis=1)
+    print(env.get_integer(x))
+    exit()
     robot, reward = env.generate_random_dist_and_reward(50, env_type=[0, 1, 2, 3])
     print(robot[0])
     env.get_deployment_cost(robot[0])
     env.get_deployment_cost(np.array([[1,0,0,0]]*3))
-    exit()
+
     max_reward = np.max(reward)
     min_reward = np.min(reward)
     max_robot = robot[np.argmax(reward)]

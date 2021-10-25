@@ -74,15 +74,6 @@ def select_parents(selection_strategy, n_matings, fitness, prob_intervals):
     return ma, pa
 
 def initialize_population(pop_size, n_genes, input_limits):
-    """
-    Initializes the population of the problem according to the
-    population size and number of genes.
-    :param pop_size: number of individuals in the population
-    :param n_genes: number of genes (variables) in the problem
-    :param input_limits: tuple containing the minimum and maximum allowed
-    :return: a numpy array with a randomly initialized population
-    """
-
     population = np.random.uniform(
       input_limits[0], input_limits[1], size=(pop_size, n_genes)
     )
@@ -90,20 +81,6 @@ def initialize_population(pop_size, n_genes, input_limits):
     return population
 
 def create_offspring(first_parent, sec_parent, crossover_pt):
-    """
-    Creates an offspring from 2 parents. It performs the crossover
-    according the following rule:
-    p_new = first_parent[crossover_pt] + beta * (first_parent[crossover_pt] - sec_parent[crossover_pt])
-    offspring = [first_parent[:crossover_pt], p_new, sec_parent[crossover_pt + 1:]
-    where beta is a random number between 0 and 1
-    :param first_parent: first parent's chromosome
-    :param sec_parent: second parent's chromosome
-    :param crossover_pt: point(s) at which to perform the crossover
-    :param offspring_number: whether it's the first or second offspring from a pair of parents.
-
-    :return: the resulting offspring.
-    """
-
     beta = (
         np.random.rand(1)[0]
     )
