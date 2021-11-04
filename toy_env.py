@@ -88,6 +88,7 @@ class MultiAgentEnv:
         # 1, mountain: car:2, aircraft:5, ship:0
         # 2, city: car:5, aircraft:3, ship:2
         # 3, lake: car:0, aircraft:5, ship:5
+        # 4, undeployed
         if env_type == 0:
             reward = car_num * 5 + plane_num * 5 + ship_num * 0
         elif env_type == 1:
@@ -96,6 +97,8 @@ class MultiAgentEnv:
             reward = car_num * 5 + plane_num * 3 + ship_num * 5
         elif env_type == 3:
             reward = car_num * 0 + plane_num * 5 + ship_num * 5
+        elif env_type == 4:
+            reward = 0
         reward = np.sqrt(reward)
         return reward
 
@@ -157,7 +160,7 @@ class MultiAgentEnv:
     #Todo: define a function that measures secondary objective
     def get_deployment_cost(self, alloc, env_type=None):
         int_alloc = self.get_integer(alloc)
-        area_weight = np.array([0.5, 1.0, 1.0, 1.5])  # TODO: weight should be based on env_type
+        area_weight = np.array([0, 1.0, 1.0, 1.5]) # np.array([0.5, 1.0, 1.0, 1.5])  # TODO: weight should be based on env_type
         agent_weight = np.array([0.01, 0.02, 0.03])
         cost = int_alloc.T @ agent_weight @ area_weight
         return cost

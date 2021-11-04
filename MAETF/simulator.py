@@ -6,7 +6,7 @@ from .agent import xyAgent
 from .team import optimize_team_erg
 from scipy.special import softmax
 import copy
-
+from matplotlib import colors
 
 class MultiAgentEnv:
     def __init__(self, n_num_grids=4, n_num_agents=3, n_env_types=4, agent_num=[20, 20, 20],
@@ -129,7 +129,7 @@ class MultiAgentEnv:
         return erg1, team
 
     def draw_agent(self, teams, terrain):
-        from matplotlib import colors
+
         env_type_color = ['navy', 'saddlebrown', 'forestgreen', 'ghostwhite']
         cmap = colors.ListedColormap(env_type_color)
         fig, ax = plt.subplots()
@@ -154,7 +154,7 @@ class MultiAgentEnv:
 if __name__ == '__main__':
     # Still a little weird
 
-    env = MultiAgentEnv(nopt=1500, erg_num=15)
+    env = MultiAgentEnv(nopt=500, erg_num=10)
     # the part about forming compositions
     n_rand = 1
     min_erg = np.inf
@@ -162,10 +162,23 @@ if __name__ == '__main__':
     env_types = [3, 2, 2, 1]
     terrain = np.zeros((50, 50), dtype=np.int32)  # this correspond to the default second region - lake
 
-    terrain[0:25, 0:25] = env_types[0]  # this correspond to the default first region - mountain
-    terrain[25:, 0:25] = env_types[1]
-    terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
-    terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+    # terrain[0:25, 0:25] = env_types[0]  # this correspond to the default first region - mountain
+    # terrain[25:, 0:25] = env_types[1]
+    # terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
+    # terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+
+    terrain[0:40, 0:20] = env_types[1]  # this correspond to the default first region - mountain
+    terrain[35:, 17:] = env_types[3]
+    # terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
+    # terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+
+    env_type_color = ['navy', 'saddlebrown', 'forestgreen', 'ghostwhite']
+    cmap = colors.ListedColormap(env_type_color)
+    fig, ax = plt.subplots()
+    im = ax.imshow(terrain.T, origin='lower', extent=(0, 1, 0, 1), cmap=cmap)
+    plt.show()
+    exit()
+
     color = []
     for _ in range(n_rand):
         # assignment = np.random.uniform(-1, 1, [env.n_types_agents, env.n_num_grids])

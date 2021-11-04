@@ -23,14 +23,14 @@ pop_size = 50  # 128  # population size
 input_limits = np.array([-5, 5])
 mutation_rate = 0.1
 n_mutations = math.ceil((pop_size - 1) * n_genes * mutation_rate)
-max_gen = 300
+max_gen = 100
 
 # both are to be maximized
 # First function to optimize
 def function1(x):
     x = np.asarray(x).reshape([3, 4])
     x = softmax(x, axis=1)
-    terrain = [0, 1, 2, 3]
+    terrain = [4, 1, 2, 3] #first region: undeployed
     return env.get_reward(x, terrain)
 
 # Second function to optimize
@@ -148,7 +148,7 @@ def initialize_population(pop_size, n_genes, input_limits):
 
 if __name__ == '__main__':
     solution = initialize_population(pop_size, n_genes, input_limits).tolist()
-    gen_no=0
+    gen_no = 0
     while(gen_no<max_gen):
         function1_values = [function1(solution[i])for i in range(0,pop_size)]
         function2_values = [function2(solution[i])for i in range(0,pop_size)]
@@ -200,7 +200,8 @@ if __name__ == '__main__':
     plt.ylabel('Deployment Cost', fontsize=15)
     plt.scatter(function1, function2)
     plt.show()
-
-    print(solution2[function2_values.index(max(function2_values))].tolist())
+    x = solution2[function2_values.index(max(function2_values))].tolist()
+    # print()
+    print(env.get_integer(x))
     # import ipdb
     # ipdb.set_trace()
