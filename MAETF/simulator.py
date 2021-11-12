@@ -7,6 +7,7 @@ from .team import optimize_team_erg
 from scipy.special import softmax
 import copy
 from matplotlib import colors
+from .process_terrain import get_terrain_map, obtain_info_map
 
 class MultiAgentEnv:
     def __init__(self, n_num_grids=4, n_num_agents=3, n_env_types=4, agent_num=[20, 20, 20],
@@ -45,6 +46,7 @@ class MultiAgentEnv:
             self.agent3 = xyAgent('red', self.erg_calc, 20, terrain_traversability3, weight=20)
         else:
             exit("error in simulator.py")
+
     # turn continuous alloc into discrete assignment
     def get_integer(self, alloc):
         alloc = alloc.T
@@ -61,6 +63,40 @@ class MultiAgentEnv:
                     int_alloc[j][i] = cur_num
         return int_alloc.T
 
+    # new reward function, generate reward based on
+    def get_integer_reward_2(self, int_alloc, terrain, plot=False, save_location=False):
+        reward = 0
+        teams = []
+        reward_list = []
+        terrain = get_terrain_map()
+        distributions = obtain_info_map()
+        for i in range(self.n_num_grids):
+            distribution = distributions[i]
+            # distribution = np.ones((50, 50))
+            distribution = distribution / np.sum(distribution)
+            # print(distribution)
+
+            cur_reward, team = self.get_grid_reward(int_alloc[:, i], distribution, terrain)
+            teams.append(team)
+            reward += cur_reward
+            reward_list.append(cur_reward)
+        if plot:
+            self.draw_agent(teams, terrain, task=[3])
+        if save_location:
+            loc_list = []
+            team_idx = 0
+            for team in teams:
+                for agent in team:
+                    loc_list.append([agent.color, agent.cur_traj, team_idx])
+                team_idx += 1
+            np.save("./MAETF/data_loc/loc", np.array(loc_list))
+        return reward, reward_list
+
+    # get the reward given a terrain and a partition map
+    def get_partition_reward(self):
+        pass
+
+    # this function is in charge of generating the reward for tasks, assuming grid decomposition
     def get_integer_reward(self, int_alloc, terrain, info=None, plot=False, print_info=False, save_location=False):
         if print_info:
             print(int_alloc)
@@ -128,17 +164,20 @@ class MultiAgentEnv:
         # print('erg team', erg1)
         return erg1, team
 
-    def draw_agent(self, teams, terrain):
-
+    def draw_agent(self, teams, terrain, task=[0,1,2,3]):
+        print((terrain==2).sum())
         env_type_color = ['navy', 'saddlebrown', 'forestgreen', 'ghostwhite']
         cmap = colors.ListedColormap(env_type_color)
         fig, ax = plt.subplots()
         im = ax.imshow(terrain.T, origin='lower', extent=(0, 1, 0, 1), cmap=cmap)
 
-
+        i = 0
         for team in teams:
-            for agent in team:
-                agent.plot_self(ax)
+            if i in task:
+                print(f"{i} in task")
+                for agent in team:
+                    agent.plot_self(ax)
+            i += 1
         # plt.colorbar(im)
         plt.show()
 
@@ -159,25 +198,27 @@ if __name__ == '__main__':
     n_rand = 1
     min_erg = np.inf
     env_types = [1, 0, 2, 3]  # this is the default
-    env_types = [3, 2, 2, 1]
+    # env_types = [3, 2, 2, 1]
     terrain = np.zeros((50, 50), dtype=np.int32)  # this correspond to the default second region - lake
 
-    # terrain[0:25, 0:25] = env_types[0]  # this correspond to the default first region - mountain
-    # terrain[25:, 0:25] = env_types[1]
-    # terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
-    # terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+    terrain[0:25, 0:25] = env_types[0]  # this correspond to the default first region - mountain
+    terrain[25:, 0:25] = env_types[1]
+    terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
+    terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
 
-    terrain[0:40, 0:20] = env_types[1]  # this correspond to the default first region - mountain
-    terrain[35:, 17:] = env_types[3]
-    # terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
-    # terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+    # Step one: tries a new terrin type obtained from thune
 
-    env_type_color = ['navy', 'saddlebrown', 'forestgreen', 'ghostwhite']
-    cmap = colors.ListedColormap(env_type_color)
-    fig, ax = plt.subplots()
-    im = ax.imshow(terrain.T, origin='lower', extent=(0, 1, 0, 1), cmap=cmap)
-    plt.show()
-    exit()
+    # terrain[0:40, 0:20] = env_types[1]  # this correspond to the default first region - mountain
+    # terrain[35:, 17:] = env_types[3]
+    # # terrain[0:25, 25:] = env_types[2]  # this correspond to the default third region - plain
+    # # terrain[25:, 25:] = env_types[3]  # this correspond to the default fourth region - city
+
+    # env_type_color = ['navy', 'saddlebrown', 'forestgreen', 'ghostwhite']
+    # cmap = colors.ListedColormap(env_type_color)
+    # fig, ax = plt.subplots()
+    # im = ax.imshow(terrain.T, origin='lower', extent=(0, 1, 0, 1), cmap=cmap)
+    # plt.show()
+    # exit()
 
     color = []
     for _ in range(n_rand):
@@ -225,7 +266,9 @@ if __name__ == '__main__':
                               [20, 0, 0, 0, ],
                               [0, 2, 8, 10, ]])
 
-        reward, reward_list = env.get_integer_reward(int_alloc, terrain, plot=True, print_info=True, save_location=True)
+        reward, reward_list = env.get_integer_reward_2(int_alloc, terrain, plot=True,
+                                                     save_location=False)
+        # reward, reward_list = env.get_integer_reward(int_alloc, terrain, plot=True, print_info=True, save_location=False)
         print(reward)
         print(reward_list)
         reward_list = np.array(reward_list)
